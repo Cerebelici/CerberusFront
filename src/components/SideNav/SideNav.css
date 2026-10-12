@@ -1,0 +1,215 @@
+/*  
+ -- SPACING SYSTEM (px)
+2 / 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 80 / 96 / 128
+
+--- FONT SIZE SYSTEM (px)
+10 / 12 / 14 / 16 / 18 / 20 / 24 / 30 / 36 / 44 / 52 / 62 / 74 / 86 / 98
+
+*/
+
+.sidenav {
+  font-family: var(--font-heading);
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-top: 1.6rem;
+  padding-bottom: 1.6rem;
+  border-right: 0.1rem solid var(--light-main);
+  background: var(--bg-main);
+  transition: width 200ms ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidenav--expanded { width: 30rem; }
+.sidenav--collapsed { width: 6.5rem; }
+
+/* Top section */
+.sidenav__top {
+  display: flex;
+  flex-direction: column;
+  gap: 4.8rem;
+}
+
+/* Collapse toggle */
+.sidenav__toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 1.6rem;
+}
+
+.sidenav__toggle {
+  width: 3.2rem;
+  height: 3.2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.sidenav__toggle--collapsed { transform: rotate(180deg); }
+
+/* Nav list */
+.sidenav__list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Nav button */
+.sidenav__item {
+  font-family: inherit;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 1.2rem 1.6rem;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  transition: background 150ms;
+}
+
+.sidenav__item:not(.sidenav__item--active):hover{
+  background: var(--light-secondary);
+  color: var(--bg-main);
+  .sidenav__icon {
+    color: var(--bg-main);
+  }
+  .sidenav__meta-text,
+  .sidenav__badge {
+    color: var(--bg-secondary);
+  }
+}
+
+.sidenav__item--dark { background: var(--bg-tertiary); }
+
+.sidenav__item--active {
+  background: var(--accent);
+}
+.sidenav__item--active:hover{
+  background-color: var(--accent-light);
+  color: var(--bg-main);
+  .sidenav__icon {
+    color: var(--bg-main);
+  }
+  .sidenav__meta-text,
+  .sidenav__badge {
+    color: var(--bg-secondary);
+  }
+}
+
+/* Left side of a nav item: icon + label */
+.sidenav__item-left {
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidenav__icon {
+  color: var(--light-main);
+  font-size: 3.2rem;
+  font-variation-settings:
+  'FILL' 0,
+  'wght' 100,
+  'GRAD' -25,
+  'opsz' 48;
+  width: 3.2rem;
+  height: 3.2rem;
+  flex-shrink: 0;
+}
+
+.sidenav__label {
+  font-size: 2.4rem;
+}
+
+/* Badge (numeric stat) */
+.sidenav__badge {
+  font-size: 1.8rem;
+  color: var(--light-secondary);
+  white-space: nowrap;
+  line-height: normal;
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* Meta (D: / V: dates) */
+.sidenav__meta {
+  height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  justify-content: space-around;
+}
+
+.sidenav__meta-text {
+  font-size: 1.2rem;
+  color: var(--light-secondary);
+  white-space: nowrap;
+}
+
+/* Logo Placeholder */
+.sidenav__logo {
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+  height: 3.2rem;
+  padding: 0rem 1.6rem;
+}
+
+.sidenav__logo-mark {
+  position: relative;
+  width: 3.2rem;
+  height: 3.2rem;
+  flex-shrink: 0;
+}
+
+.sidenav__logo-mark-a {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3.2rem;
+  height: 3.2rem;
+  background: #495057;
+}
+
+.sidenav__logo-mark-b {
+  position: absolute;
+  top: 0.05rem;
+  left: 1.6rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: #868e96;
+}
+
+.sidenav__logo-mark-c {
+  position: absolute;
+  top: 2.4rem;
+  left: 0;
+  width: 0.8rem;
+  height: 0.8rem;
+  background: #212529;
+}
+
+.sidenav__logo-name {
+  font-size: 3rem;
+  color: #868e96;
+  white-space: nowrap;
+  line-height: normal;
+  font-style: normal;
+  font-weight: 400;
+}

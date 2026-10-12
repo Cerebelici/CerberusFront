@@ -1,0 +1,64 @@
+{
+  "data": [
+    {
+      "deviceName": "Bubuntu server",
+      "vendor": "Samsung",
+      "ipAddress": "192.168.112.123",
+      "macAddress": "AE:08:F6:B9:DB:F3",
+      "status": "online",
+      "riskScore": 2.0,
+      "issuesCount": 123,
+      "servicesCount": 999,
+      "lastSeen": "2026-10-07T17:52:00Z"
+    },
+    {
+      "deviceName": "RawDog",
+      "vendor": "Legitimate JoePro",
+      "ipAddress": "192.168.999.999",
+      "macAddress": "AE:EA:EA:RA:EA:EA",
+      "status": "offline",
+      "riskScore": 4.1,
+      "issuesCount": 123,
+      "servicesCount": 999,
+      "lastSeen": "2026-10-07T17:59:28Z"
+    },
+    {
+      "deviceName": "VeryLongName_That_Needs_toBe_Cut_Off",
+      "vendor": "Vendor with very long name that also needs to be cut off",
+      "ipAddress": "192.168.999.999",
+      "macAddress": "AE:EA:EA:EA:VA:EA",
+      "status": "offline",
+      "riskScore": 9.2,
+      "issuesCount": 123,
+      "servicesCount": 999,
+      "lastSeen": "2026-10-07T17:59:28Z"
+    },
+    {
+      "deviceName": "Shorty",
+      "vendor": "DasBegas",
+      "ipAddress": "192.168.999.123",
+      "macAddress": "AE:EA:EA:EA:FF:FF",
+      "status": "online",
+      "riskScore": 7.3,
+      "issuesCount": 12,
+      "servicesCount": 70,
+      "lastSeen": "2026-10-07T17:59:28Z"
+    },
+    {
+      "deviceName": "SafeDave",
+      "vendor": "Romepetrol",
+      "ipAddress": "192.168.122.123",
+      "macAddress": "FE:EF:EA:EA:FF:FF",
+      "status": "online",
+      "riskScore": 0.0,
+      "issuesCount": 0,
+      "servicesCount": 5,
+      "lastSeen": "2026-10-07T17:59:28Z"
+    }
+  ],
+  "meta": {
+    "total": 42,
+    "page": 1,
+    "pageSize": 10
+  }
+}

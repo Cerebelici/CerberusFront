@@ -1,0 +1,209 @@
+.filter{
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem
+}
+
+.filter__icon
+{
+    font-variation-settings:
+    'FILL' 0,
+    'wght' 100,
+    'GRAD' -25,
+    'opsz' 24;
+}
+
+.filter-btns{
+    display: flex;
+    gap: 0.8rem;
+    padding: 0rem 0.4rem 0.8rem 0.4rem;
+    border-bottom: 0.1rem inset var(--light-main);
+}
+
+.filter-btns .btn{
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    gap: 0.8rem
+}
+
+.filter__set-dialog-anchor{
+    position: relative;
+}
+
+.filter__set-btn{
+    position: relative;
+}
+
+.filter__set-btn--dialog-open{
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    ::after{
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        height: 1rem;
+        background-color: var(--accent);
+    }
+}
+
+.filter__set-btn--dialog-open:hover,
+.filter__set-btn--dialog-open:active
+{
+    background-color: var(--accent);
+    color: var(--light-main);
+}
+
+.filter__dialog{
+    position: absolute;
+    top: calc(100% + 0.8rem);
+    left: 0;
+    right: auto;
+    z-index: 100;
+    width: 35rem;
+
+
+    border: 0 none transparent;
+    background-color: var(--accent);
+    color: var(--light-main);
+    padding: 1.6rem;
+
+    border-top-right-radius: 0.2rem;
+    border-bottom-left-radius: 0.2rem;
+    border-bottom-right-radius: 0.2rem;
+}
+
+.dialog__form{
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+
+    font-size: 1.4rem;
+}
+
+.dialog__form__row{
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.dialog__form__select:open{
+    background-color: var(--light-main);
+    color: var(--accent);
+    .dialog__form__option{
+        font-weight: 500;
+        color: var(--bg-main);
+    }
+}
+
+.dialog__form__input{ 
+    width: 100%;
+}
+
+.dialog__form__input:hover::placeholder{ 
+    color: var(--bg-secondary);
+}
+
+.dialog__form__range{
+    width: 100%;
+    display: flex;
+    gap: 0.8rem
+}
+
+.dialog__form__range__col{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 0.4rem;
+    label{
+        color: var(--light-secondary);
+    }
+}
+
+.dialog__btn-footer{
+    display: flex;
+    gap: 0.8rem;
+}
+
+.dialog__btn-submit{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.dialog__btn-cancel{
+    background-color: transparent;
+    color: var(--light-main);
+    border: 0.1rem solid var(--light-main);
+}
+
+.dialog__btn-cancel:hover{
+    color: var(--bg-main);
+    border-color: transparent;
+}
+
+.filter-settings{
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 0.4rem;
+    gap: 0.8rem;
+}
+
+.filter__setting{
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.2rem;
+    background-color: var(--bg-quaternary);
+    font-size: 1.4rem;
+    transition: background-color 100ms, transform 100ms;
+    
+}
+
+.filter__setting__label{
+    font-weight: 600;
+    margin-right: 0.4rem;
+}
+
+.filter__setting__type{
+    margin-right: 1.2rem;
+}
+
+.filter__setting__remove {
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.filter__setting__remove:hover{
+    transform: translate(0rem, -0.1rem);
+}
+
+.filter__setting__remove:hover .filter__icon{
+    font-variation-settings:
+    'FILL' 0,
+    'wght' 300,
+    'GRAD' -25,
+    'opsz' 24;
+}
+
+.filter__setting:has(.filter__setting__remove:hover){
+    transform: translate(0rem, -0.1rem) rotate(1.5deg);
+    background-color: var(--risk-critical);
+}
+
+.filter-settings__empty-label{
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--light-secondary);
+}

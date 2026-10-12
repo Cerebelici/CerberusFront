@@ -1,0 +1,210 @@
+/*  
+ -- SPACING SYSTEM (px)
+2 / 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 80 / 96 / 128
+
+--- FONT SIZE SYSTEM (px)
+10 / 12 / 14 / 16 / 18 / 20 / 24 / 30 / 36 / 44 / 52 / 62 / 74 / 86 / 98
+
+*/
+
+/* General */
+
+.dashboard-shell {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.dashboard{
+    --cols: 4;
+    --spacing: 1.6rem;
+
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+
+
+    /* (width - all spacings) / number of columns */    
+    grid-auto-rows: calc((100cqi - ((var(--cols) + 1) * var(--spacing))) / var(--cols)); 
+
+    padding: var(--spacing);
+    gap: var(--spacing);
+    background-color: var(--bg-main);
+    
+}
+
+.widget{
+    container-type: inline-size;
+    background-color: var(--bg-secondary);
+    grid-column: span 1;
+    border-radius: 0.4rem;
+    padding: 1.6rem;
+}
+
+/* Vulnerability score and stats */
+.widget--vuln-score{
+    display: flex;
+    justify-content: center;
+}
+
+.vuln-stats__list{
+    display: flex;
+    flex-direction: column;
+
+    gap: clamp(1.2rem, 7cqi, 1.6rem);
+    height: 100%;
+}
+
+.vuln-stats__item{
+    width: 100%;
+    flex: 1 1 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-heading);
+    border-left: 0.4rem solid var(--light-main);
+    text-align: end;
+    padding: 0 0.8rem;
+    overflow: hidden;
+    border-radius: 0.2rem;
+}
+
+.vuln-stats__item--critical{
+    border-color: var(--risk-critical);
+    .vuln-stats__item__score{
+        color: var(--risk-critical--light);
+    }   
+}
+
+.vuln-stats__item--high{
+    border-color: var(--risk-high);
+    .vuln-stats__item__score{
+        color: var(--risk-high--light);
+    } 
+}
+
+.vuln-stats__item--medium{
+    border-color: var(--risk-medium);
+    .vuln-stats__item__score{
+        color: var(--risk-medium--light);
+    } 
+}   
+
+.vuln-stats__item--low{
+    border-color: var(--risk-low);
+    .vuln-stats__item__score{
+        color: var(--risk-low--light);
+    } 
+}
+
+.vuln-stats__item:not(.vuln-stats__item--header){
+    background-color: var(--bg-tertiary);
+    .vuln-stats__item__label{
+        color: var(--light-secondary);
+    }
+}
+
+.vuln-stats__item__score{
+    font-size: clamp(2.0rem, 10cqi, 3.0rem);
+    line-height: 1;
+}
+
+.vuln-stats__item__label{
+    font-size: clamp(1.2rem, 6.6cqi, 2.4rem);
+}
+
+.vuln-stats__item--header{
+    flex: 2 1 0;
+    gap: 1.6rem;
+}
+
+.vuln-stats__item--header .vuln-stats__item__score{
+    font-size: clamp(2.4rem, 15cqi, 4.4rem); 
+}
+
+/* Uptime and scans time stamps */
+.widget--uptime-scans{
+    background-color: transparent;
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 1.6rem;
+    padding: 0;
+}
+
+.widget--uptime-scans .widget{
+    font-family: var(--font-heading);
+    background-color: var(--accent);
+}
+
+.uptime-scans__uptime{
+    grid-column: span 2;
+    
+    container-type: size;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+
+    gap: 1.6rem
+}
+
+.uptime-scans__uptime__wrap{
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    /* gap: 0.8rem; */
+}
+
+.uptime-scans__uptime__title{
+    font-size: clamp(2.0rem, 35cqb, 100rem);
+}
+
+.uptime-scans__uptime__countdown{ 
+    font-size: clamp(2.4rem, 52cqb, 100rem);
+    line-height: 1;
+    align-self: center;
+    margin-top: auto;
+}
+
+.uptime-scans__uptime__label{
+    font-size: clamp(1.2rem, 3.1cqi, 2.4rem);
+    margin-bottom: auto;
+}
+
+.uptime-scans__scans{
+    display: flex;
+    flex-direction: column;
+}
+
+.uptime-scans__scans__label{
+    font-size: clamp(1.2rem, 6.6cqi, 2.4rem);
+    margin-bottom: 0.4rem;
+}
+
+.uptime-scans__scans__time{
+    font-size: clamp(1.8rem, 10cqi, 3.6rem);
+    margin-bottom: auto;
+}
+
+
+.btn:link.uptime-scans__scans__button,
+.btn:visited.uptime-scans__scans__button{
+    font-size: clamp(1.8rem, 10cqi, 3.0rem);
+    padding: clamp(0.4rem, 3cqi, 0.8rem) 1.6rem;
+}
+
+/* Devices */
+.widget--devices-chart{
+    grid-column: span 2;
+    background-color: var(--bg-tertiary);
+}
+
+/* Services */
+.widget--services-chart{
+    grid-column: span 2;
+}
+
+/* Timeline */
+.widget--timeline{
+    grid-column: span 4;
+    background-color: var(--bg-quaternary);
+}

@@ -1,0 +1,100 @@
+:root{
+  /* Fonts */
+  --font-heading: "Share Tech Mono", monospace;
+  --font-body: "IBM Plex Mono", monospace;
+
+  /* Colors */
+  --bg-main: #212529;
+  --bg-secondary: #2A2E33;
+  --bg-tertiary: #343A40;
+  --bg-quaternary: #495057;
+  --accent: #506384;
+  --accent-light: #91b5f9;
+  --light-main: #F1F3F5;
+  --light-secondary: #CED4DA;
+  /* Risk rankings */
+  --risk-low: #2B8A3E;
+  --risk-medium: #AC8600;
+  --risk-high: #D15A0A;
+  --risk-critical: #C02450;
+  --risk-low--light: #B2FFC1;
+  --risk-medium--light: #ffeeb3;
+  --risk-high--light: #ffd1b3;
+  --risk-critical--light: #ffb3c9;
+}
+
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+html {
+  /* 16px - rem default size; 10px / 16px = 0.625 */
+  font-size: 62.5%;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+body {
+  font-family: var(--font-body);
+  line-height: 1;
+  font-weight: 400;
+  background: var(--bg-main);
+  color: var(--light-main);
+  overflow-x: hidden;
+}
+
+/* Buttons */
+.btn,
+.btn:link,
+.btn:visited {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 1.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.2rem;
+  transition: all 150ms;
+
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn--light,
+.btn--light:link,
+.btn--light:visited {
+  color: var(--accent);
+  background-color: var(--light-main);
+}
+
+.btn--light:hover,
+.btn--light:active{
+  color: var(--light-main);
+  background-color: var(--accent);
+  box-shadow: inset 0 0 0 0.1rem var(--light-main);
+}
+
+.btn--accent,
+.btn--accent:link,
+.btn--accent:visited {
+  color: var(--light-main);
+  background-color: var(--accent);
+}
+
+.btn--accent:hover,
+.btn--accent:active{
+  color: var(--accent);
+  background-color: var(--light-main);
+}
+
+.btn--dark,
+.btn--dark:link,
+.btn--dark:visited {
+  color:var(--light-main);
+  background-color: var(--bg-quaternary);
+}
+
+.btn--dark:hover,
+.btn--dark:active{
+  color: var(--accent);
+  background-color: var(--light-secondary);
+}

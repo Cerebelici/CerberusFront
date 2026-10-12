@@ -1,0 +1,25 @@
+import { Routes, Route } from 'react-router-dom';
+import { ROUTES } from './constants.ts';
+import './App.css'
+import SideNav from './components/SideNav/SideNav.tsx'
+import Home from './components/Home/Home.tsx';
+import Devices from './components/Devices/Devices.tsx';
+
+function App() {
+  return (
+    <div className='app-body'>
+      < SideNav />
+      <main className='app-content'>
+        <Routes>
+          <Route path={ROUTES.HOME} element={<Home/>}></Route>
+          <Route path={ROUTES.DEVICES} element={<Devices/>}></Route>
+          <Route path={ROUTES.SERVICES}></Route>
+          <Route path={ROUTES.VULNERABILITIES}></Route>
+          <Route path={ROUTES.SCANS}></Route>
+        </Routes>
+      </main>
+    </div>
+  )
+}
+
+export default App

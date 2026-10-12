@@ -1,0 +1,233 @@
+{
+    "time_window": {
+        "from": "2026-09-29T12:00:00Z",
+        "to": "2026-09-30T12:00:00Z",
+        "total_scans": 8,
+        "total_devices": 5
+    },
+    "scan_ticks": [
+        {
+            "scan_id": 1,
+            "timestamp": "2026-09-29T16:00:00Z",
+            "scan_type": "discovery",
+            "status": "completed",
+            "target_spec": "172.28.0.0/24",
+            "hosts_found": 4,
+            "duration_ms": 1420
+        },
+        {
+            "scan_id": 2,
+            "timestamp": "2026-09-29T20:00:00Z",
+            "scan_type": "discovery",
+            "status": "completed",
+            "target_spec": "172.28.0.0/24",
+            "hosts_found": 4,
+            "duration_ms": 1390
+        },
+        {
+            "scan_id": 3,
+            "timestamp": "2026-09-30T00:00:00Z",
+            "scan_type": "discovery",
+            "status": "completed",
+            "target_spec": "172.28.0.0/24",
+            "hosts_found": 5,
+            "duration_ms": 1580
+        },
+        {
+            "scan_id": 4,
+            "timestamp": "2026-09-30T00:15:00Z",
+            "scan_type": "immediate",
+            "status": "completed",
+            "target_spec": "172.28.0.50",
+            "hosts_found": 1,
+            "duration_ms": 3820
+        },
+        {
+            "scan_id": 5,
+            "timestamp": "2026-09-30T04:00:00Z",
+            "scan_type": "vulnerability",
+            "status": "completed",
+            "target_spec": "[172.28.0.1 172.28.0.10 172.28.0.20 172.28.0.30 172.28.0.50]",
+            "hosts_found": 5,
+            "duration_ms": 12450
+        },
+        {
+            "scan_id": 6,
+            "timestamp": "2026-09-30T08:00:00Z",
+            "scan_type": "discovery",
+            "status": "completed",
+            "target_spec": "172.28.0.0/24",
+            "hosts_found": 3,
+            "duration_ms": 1460
+        },
+        {
+            "scan_id": 7,
+            "timestamp": "2026-09-30T11:00:00Z",
+            "scan_type": "discovery",
+            "status": "completed",
+            "target_spec": "172.28.0.0/24",
+            "hosts_found": 4,
+            "duration_ms": 1410
+        },
+        {
+            "scan_id": 8,
+            "timestamp": "2026-09-30T11:30:00Z",
+            "scan_type": "vulnerability",
+            "status": "completed",
+            "target_spec": "[172.28.0.1 172.28.0.10 172.28.0.20 172.28.0.30]",
+            "hosts_found": 4,
+            "duration_ms": 9800
+        }
+    ],
+    "devices": [
+        {
+            "device_id": 1,
+            "ip": "172.28.0.1",
+            "mac": "02:42:AC:1C:00:01",
+            "hostname": "gateway-router",
+            "vendor": "Cisco Systems",
+            "current_status": "up",
+            "periods": [
+                {
+                    "started_at": "2026-09-29T16:00:00Z",
+                    "ended_at": "2026-09-30T12:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": true
+                }
+            ]
+        },
+        {
+            "device_id": 2,
+            "ip": "172.28.0.10",
+            "mac": "02:42:AC:1C:00:0A",
+            "hostname": "target-nginx",
+            "vendor": "Docker Inc.",
+            "current_status": "up",
+            "periods": [
+                {
+                    "started_at": "2026-09-29T16:00:00Z",
+                    "ended_at": "2026-09-30T04:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": false
+                },
+                {
+                    "started_at": "2026-09-30T04:00:00Z",
+                    "ended_at": "2026-09-30T12:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": true,
+                    "vulns_count": 1,
+                    "max_severity": "HIGH",
+                    "is_ongoing": true
+                }
+            ]
+        },
+        {
+            "device_id": 3,
+            "ip": "172.28.0.20",
+            "mac": "02:42:AC:1C:00:14",
+            "hostname": "target-redis",
+            "vendor": "Docker Inc.",
+            "current_status": "up",
+            "periods": [
+                {
+                    "started_at": "2026-09-29T16:00:00Z",
+                    "ended_at": "2026-09-30T08:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": false
+                },
+                {
+                    "started_at": "2026-09-30T08:00:00Z",
+                    "ended_at": "2026-09-30T11:00:00Z",
+                    "status": "down",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": false
+                },
+                {
+                    "started_at": "2026-09-30T11:00:00Z",
+                    "ended_at": "2026-09-30T12:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": true
+                }
+            ]
+        },
+        {
+            "device_id": 4,
+            "ip": "172.28.0.30",
+            "mac": "02:42:AC:1C:00:1E",
+            "hostname": "target-dvwa",
+            "vendor": "Linux Foundation",
+            "current_status": "up",
+            "periods": [
+                {
+                    "started_at": "2026-09-29T16:00:00Z",
+                    "ended_at": "2026-09-30T04:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": false
+                },
+                {
+                    "started_at": "2026-09-30T04:00:00Z",
+                    "ended_at": "2026-09-30T12:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": true,
+                    "vulns_count": 3,
+                    "max_severity": "CRITICAL",
+                    "is_ongoing": true
+                }
+            ]
+        },
+        {
+            "device_id": 5,
+            "ip": "172.28.0.50",
+            "mac": "B8:27:EB:AA:11:99",
+            "hostname": "rogue-iot-cam",
+            "vendor": "Raspberry Pi Foundation",
+            "current_status": "down",
+            "periods": [
+                {
+                    "started_at": "2026-09-30T00:00:00Z",
+                    "ended_at": "2026-09-30T00:15:00Z",
+                    "status": "up",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": false
+                },
+                {
+                    "started_at": "2026-09-30T00:15:00Z",
+                    "ended_at": "2026-09-30T08:00:00Z",
+                    "status": "up",
+                    "is_vulnerable": true,
+                    "vulns_count": 1,
+                    "max_severity": "MEDIUM",
+                    "is_ongoing": false
+                },
+                {
+                    "started_at": "2026-09-30T08:00:00Z",
+                    "ended_at": "2026-09-30T12:00:00Z",
+                    "status": "down",
+                    "is_vulnerable": false,
+                    "vulns_count": 0,
+                    "max_severity": "NONE",
+                    "is_ongoing": true
+                }
+            ]
+        }
+    ]
+}

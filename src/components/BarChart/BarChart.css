@@ -1,0 +1,110 @@
+.barchart{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    font-family: var(--font-heading);
+    color: var(--light-main);
+}
+
+.barchart__title{
+    margin-bottom: 1.6rem;
+    font-size: clamp(1.8rem, 4.6cqi, 3.6rem);
+    letter-spacing: 0.1rem;
+    text-transform: uppercase;
+}
+
+.barchart__body{
+    position: relative;
+    flex: 1;
+    display: flex;
+}
+
+/* Y-Axis & horizontal grid lines */
+.barchart__y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* Offset for X-axis labels */
+  padding-bottom: 3rem; 
+  width: 4rem;
+  /* flex-shrink: 0; */
+}
+
+.barchart__y-tick {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.barchart__y-label {
+  font-size: 1.4rem;
+  line-height: 0;
+  color: var(--light-secondary);
+}
+
+
+
+/* Bars and Lines */
+.barchart__bars {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 1.6rem 0 1.6rem;
+  gap: 1.6rem;
+  /* Room for X-axis label */
+  padding-bottom: 3rem; 
+}
+
+.barchart__grid-lines-container{
+    position: absolute;
+    inset: 0 0 3rem;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.barchart__grid-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0.2rem;
+    background-color: var(--bg-quaternary);
+    border-radius: 0.2rem;
+    top: var(--line-offset);
+}
+
+.barchart__column {
+  flex: 1;
+  z-index: 2; /* Sit above grid lines */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* The actual colored bar */
+.barchart__bar {
+  width: 100%;
+  height: var(--bar-height, 0%);
+  background-color: var(--accent);
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 0.8rem;
+  border-radius: 0.2rem;
+}
+
+.barchart__value {
+  color: var(--light-main);
+  font-size: 1.4rem;
+}
+
+.barchart__x-label {
+  position: absolute;
+  bottom: 0;
+  font-size: 1.6rem;
+  color: var(--light-secondary);
+  text-transform: uppercase;
+}

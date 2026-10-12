@@ -1,0 +1,34 @@
+.risk-score {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-weight: 600;
+}
+
+.risk-score__rank {
+    display: block;
+    height: 1.1rem;
+    width: 3rem;
+    border-radius: 0.2rem;
+    border: 0.2rem solid transparent;
+}
+
+.risk-score__rank--none {
+    border-color: var(--light-secondary);
+}
+
+.risk-score__rank--low {
+    background-color: var(--risk-low);
+}
+
+.risk-score__rank--medium {
+    background-color: var(--risk-medium);
+}
+
+.risk-score__rank--high {
+    background-color: var(--risk-high);
+}
+
+.risk-score__rank--critical {
+    background-color: var(--risk-critical);
+}

@@ -1,0 +1,15 @@
+.status-indicator {
+    display: block;
+    height: 1.1rem;
+    width: 1.1rem;
+    border-radius: 50%;
+    border: 0.2rem solid transparent;
+}
+
+.status-indicator--on {
+    background-color: var(--risk-low);
+}
+
+.status-indicator--off {
+    border-color: var(--light-secondary);
+}
