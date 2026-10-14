@@ -1,7 +1,7 @@
 import { useState, type SubmitEvent } from "react"
 import "./TableFilter.css"
 import { Icon } from "../Icon/Icon"
-import type { FilterConfig, TableColumn, TableFilterRule } from "../TableData/TableData"
+import type { FilterConfig, TableColumn, TableFilterRule } from "../TableData/TableTypes"
 
 interface TableFilterProps<T extends object> {
   columns: readonly TableColumn<T>[]

@@ -3,52 +3,13 @@ import "./TableData.css"
 import { Icon } from "../Icon/Icon"
 import StatusIndicator from "../StatusIndicator/StatusIndicator"
 import RiskScore from "../RiskScore/RiskScore"
+import type { TableColumn, TableSort } from "./TableTypes"
 
-export type FilterConfig =
-    | { kind: "text" }
-    | { kind: "number" }
-    | { kind: "date" }
-    | { kind: "status"; options: readonly string[] }
-
-export type TableDisplay =
-    | { kind: "status"; activeValues: readonly string[] }
-    | { kind: "risk-score" }
-    | { kind: "date" }
-
-export interface TableColumn<T> {
-    key: keyof T
-    label: string
-    sortable?: boolean
-    filter?: FilterConfig
-    display?: TableDisplay
-}
-
-export interface TableSort<T> {
-    key: keyof T
-    direction: "asc" | "desc"
-}
-
-export type TableFilterRule<T> =
-    | { columnKey: keyof T; kind: "text"; operator: "equal" | "contains"; value: string }
-    | {
-        columnKey: keyof T
-        kind: "number"
-        operator: "equal" | "lt" | "gt" | "ltq" | "gtq" | "range"
-        value: string
-        secondValue?: string
-    }
-    | {
-        columnKey: keyof T
-        kind: "date"
-        operator: "before" | "after" | "range"
-        value: string
-        secondValue?: string
-    }
-    | { columnKey: keyof T; kind: "status"; value: string }
+export type { FilterConfig, TableColumn, TableDisplay, TableFilterRule, TableSort } from "./TableTypes"
 
 interface TableDataProps<T> {
-    rows: T[]
-    columns: TableColumn<T>[]
+    rows: readonly T[]
+    columns: readonly TableColumn<T>[]
     getRowKey: (row: T) => string | number
     sort: TableSort<T> | null
     onSortChange: (sort: TableSort<T>) => void
