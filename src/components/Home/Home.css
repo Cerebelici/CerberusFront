@@ -17,14 +17,18 @@
 .dashboard{
     --cols: 4;
     --spacing: 1.6rem;
+    --cell-size: calc(
+        (100cqi - ((var(--cols) + 1) * var(--spacing))) / var(--cols)
+        );
 
     display: grid;
     grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
 
 
     /* (width - all spacings) / number of columns */    
-    grid-auto-rows: calc((100cqi - ((var(--cols) + 1) * var(--spacing))) / var(--cols)); 
-
+    grid-auto-rows: var(--cell-size);
+    grid-template-rows: repeat(2, var(--cell-size)) auto;
+    
     padding: var(--spacing);
     gap: var(--spacing);
     background-color: var(--bg-main);
@@ -207,4 +211,7 @@
 .widget--timeline{
     grid-column: span 4;
     background-color: var(--bg-quaternary);
+    padding: 0;
+    background-color: transparent;
+    overflow: hidden;
 }

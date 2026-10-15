@@ -1,11 +1,12 @@
 import './Home.css';
 import DonutChart from '../DonutChart/DonutChart';
 import BarChart  from '../BarChart/BarChart';
+import { NetworkTimeline, type NetworkData } from '../Timeline/Timeline';
 import type { BarDataItem } from '../BarChart/BarChart';
 import type { Severity } from '../../constants';
 import { NavLink } from 'react-router-dom';
 import { ROUTES } from '../../constants';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUptime, formatDate } from '../../uptime';
 
 const vulnerabilityScore: number = 7.3 //placeholder
@@ -50,7 +51,55 @@ const barChartDataServices: BarDataItem[] = [
   { label: 'COMPROMISED', value: 128 },
 ];
 
+async function getTimeline(signal?: AbortSignal): Promise<NetworkData> {
+  const response = await fetch('/api/timeline', {
+    method: 'GET',
+    signal,
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not load timeline (HTTP ${response.status})`);
+  }
+
+  const body: unknown = await response.json();
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('time_window' in body) ||
+    typeof body.time_window !== 'object' ||
+    body.time_window === null ||
+    !('scan_ticks' in body) ||
+    !Array.isArray(body.scan_ticks) ||
+    !('devices' in body) ||
+    !Array.isArray(body.devices)
+  ) {
+    throw new Error('The timeline API returned an invalid response');
+  }
+
+  return body as NetworkData;
+}
+
 function Home() {
+  const [timelineData, setTimelineData] = useState<NetworkData | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(true);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    getTimeline(controller.signal)
+      .then(setTimelineData)
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setTimelineError(error instanceof Error ? error.message : 'Could not load timeline');
+      })
+      .finally(() => setTimelineLoading(false));
+
+    return () => controller.abort();
+  }, []);
+
   // Calculate severity rank
   var SeverityRank: Severity = 'none';
   if (vulnerabilityScore >= 9.0) SeverityRank = 'critical';
@@ -121,8 +170,15 @@ function Home() {
           </div>
 
           {/* Row 3 */}
-          <div className='widget widget--timeline'></div>
-
+          <div className='widget widget--timeline'>
+            {timelineLoading ? (
+              <p>Loading timeline...</p>
+            ) : timelineError ? (
+              <p role='alert'>{timelineError}</p>
+            ) : timelineData ? (
+              <NetworkTimeline data={timelineData} />
+            ) : null}
+          </div>
       </div>
     </div>
   )
