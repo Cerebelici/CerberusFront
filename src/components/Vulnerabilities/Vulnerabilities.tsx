@@ -4,6 +4,7 @@ import TableData from "../TableData/TableData"
 import { useTableState } from "../TableData/useTableState"
 import type { TableColumn } from "../TableData/TableTypes"
 import { useEffect, useState } from "react"
+import VulnerabilityPanel from "../VulnerabilityPanel/VulnerabilityPanel"
 
 interface VulnerabilityJSON{
   id: number,
@@ -86,6 +87,7 @@ async function getVulnerabilities(signal?: AbortSignal): Promise<VulnerabilityJS
 
 function Vulnerabilities() {
   const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityJSON[]>([])
+  const [selectedVulnerability, setSelectedVulnerability] = useState<Vulnerability | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -111,27 +113,37 @@ function Vulnerabilities() {
 
   return (
     <div className="vulnerabilities-tab">
-      <TableFilter
-        columns={columns}
-        filters={table.filters}
-        onAddFilter={table.addFilter}
-        onRemoveFilter={table.removeFilter}
-        onClearFilters={table.clearFilters}
-      />
-      <TableData
-        {...(loading
-          ? { status: "loading" as const }
-          : error
-            ? { status: "error" as const, message: error }
-            : {
-                status: "ready" as const,
-                rows: table.rows,
-                getRowKey: (vuln: Vulnerability) => vuln.id,
-                sort: table.sort,
-                onSortChange: table.changeSort,
-              })}
-        columns={columns}
-      />
+      <div className="vulnerabilities-tab__column vulnerabilities-tab__column--table">
+        <TableFilter
+          columns={columns}
+          filters={table.filters}
+          onAddFilter={table.addFilter}
+          onRemoveFilter={table.removeFilter}
+          onClearFilters={table.clearFilters}
+        />
+        <TableData
+          {...(loading
+            ? { status: "loading" as const }
+            : error
+              ? { status: "error" as const, message: error }
+              : {
+                  status: "ready" as const,
+                  rows: table.rows,
+                  getRowKey: (vuln: Vulnerability) => vuln.id,
+                  sort: table.sort,
+                  onSortChange: table.changeSort,
+                  onRowClick: setSelectedVulnerability,
+                  selectedRowKey: selectedVulnerability?.id,
+                })}
+          columns={columns}
+        />
+      </div>
+      <div className="vulnerabilities-tab__column">
+        <VulnerabilityPanel
+          cveId={selectedVulnerability?.cve_id ?? null}
+          score={selectedVulnerability?.score ?? null}
+        />
+      </div>
     </div>
   )
 }

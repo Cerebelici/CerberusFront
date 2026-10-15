@@ -1,6 +1,16 @@
 .vulnerabilities-tab{
     display: flex;
-    flex-direction: column;
+    gap: 3.2rem;
     padding: 3.2rem;
+}
+
+.vulnerabilities-tab__column{
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.vulnerabilities-tab__column--table{
+    /* flex-grow: 4; */
     gap: 3.2rem;
 }

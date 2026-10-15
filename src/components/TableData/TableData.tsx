@@ -17,6 +17,8 @@ type TableDataProps<T extends object> = {
         getRowKey: (row: T) => string | number
         sort: TableSort<T> | null
         onSortChange: (sort: TableSort<T>) => void
+        onRowClick?: (row: T) => void
+        selectedRowKey?: string | number
     }
 )
 
@@ -77,6 +79,8 @@ function TableData<T extends object>(props: TableDataProps<T>) {
                     columns={columns}
                     getRowKey={props.getRowKey}
                     sort={props.sort}
+                    onRowClick={props.onRowClick}
+                    selectedRowKey={props.selectedRowKey}
                 />
             )}
         </div>

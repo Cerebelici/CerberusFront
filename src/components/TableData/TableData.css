@@ -147,6 +147,14 @@
     background-color: var(--bg-secondary);
 }
 
+.table__row[role="button"]{
+    cursor: pointer;
+}
+
+.table__row--selected .table__cell{
+    background-color: var(--bg-quaternary);
+}
+
 .table__row .table__cell::after{
     content: '';
     position: absolute;
@@ -164,6 +172,15 @@
 
 .table__row:nth-child(even) .table__cell::after{
     background-image: linear-gradient(to right, transparent, var(--bg-secondary) 75%);
+}
+
+.table__row--selected .table__cell::after{
+    background-image: linear-gradient(to right, transparent, var(--bg-quaternary) 75%);
+}
+
+.table__row[role="button"]:focus-visible .table__cell{
+    outline: 0.2rem solid var(--accent-light);
+    outline-offset: -0.2rem;
 }
 
 .table__header__label,

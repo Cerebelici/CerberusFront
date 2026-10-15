@@ -12,6 +12,8 @@ interface TableRowsProps<T>
   columns: readonly TableColumn<T>[]
   getRowKey: (row: T) => string | number
   sort: TableSort<T> | null
+  onRowClick?: (row: T) => void
+  selectedRowKey?: string | number
 }
 
 function compareValues<T extends object>(left: T, right: T, column: TableColumn<T>): number {
@@ -41,7 +43,14 @@ function compareValues<T extends object>(left: T, right: T, column: TableColumn<
     })
 }
 
-function TableRows<T extends object>({ rows, columns, getRowKey, sort}: TableRowsProps<T>) {
+function TableRows<T extends object>({
+    rows,
+    columns,
+    getRowKey,
+    sort,
+    onRowClick,
+    selectedRowKey,
+}: TableRowsProps<T>) {
     const sortedRows = useMemo(() => {
         if (!sort) return rows
 
@@ -56,8 +65,24 @@ function TableRows<T extends object>({ rows, columns, getRowKey, sort}: TableRow
 
     return (
         <>
-            {sortedRows.map((row) => (
-                <div className="table__row" key={getRowKey(row)}>
+            {sortedRows.map((row) => {
+                const rowKey = getRowKey(row)
+                const isSelected = rowKey === selectedRowKey
+
+                return (
+                <div
+                    className={`table__row${isSelected ? " table__row--selected" : ""}`}
+                    key={rowKey}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    onKeyDown={onRowClick ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            onRowClick(row)
+                        }
+                    } : undefined}
+                    role={onRowClick ? "button" : undefined}
+                    tabIndex={onRowClick ? 0 : undefined}
+                >
                     {columns.map((column) => {
                         const value = row[column.key]
                         const displayValue = String(value ?? "—")
@@ -102,7 +127,8 @@ function TableRows<T extends object>({ rows, columns, getRowKey, sort}: TableRow
                         )
                     })}
                 </div>
-            ))}
+                )
+            })}
         </>
     )
 }
