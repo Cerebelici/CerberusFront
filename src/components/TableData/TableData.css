@@ -24,12 +24,76 @@
     .table__cell:last-child{
         border-bottom-right-radius: var(--table-radius);
     }
+
+}
+.table__loading__row:last-child{
+    border-bottom-left-radius: var(--table-radius);
+    border-bottom-right-radius: var(--table-radius);
 }
 
 .table__header,
 .table__row {
   display: contents;
 }
+
+.table__error {
+    grid-column: 1 / -1;
+    padding: 8.0rem 0;
+    text-align: center;
+    font-size: 2.4rem;
+    border-right: 0.2rem solid transparent;
+    border-left: 0.2rem solid transparent;
+    border-image: linear-gradient(to bottom, var(--bg-quaternary), transparent) 1;
+
+}
+
+.table__loading{
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+}
+
+.table__loading__row{
+    height: 4rem;
+    width: 100%;
+}
+
+.table__loading__row:nth-child(odd){
+    /* background-color: var(--bg-tertiary); */
+    background: linear-gradient(90deg, var(--bg-secondary), var(--bg-quaternary));
+    background-size: 400% 400%;
+
+    -webkit-animation: RowLoading 3s ease infinite;
+    -moz-animation: RowLoading 3s ease infinite;
+    animation: RowLoading 3s ease infinite;
+}
+
+.table__loading__row:nth-child(even){
+    /* background-color: var(--bg-secondary); */
+    background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary));
+    background-size: 300% 300%;
+
+    -webkit-animation: RowLoading 2s ease infinite;
+    -moz-animation: RowLoading 2s ease infinite;
+    animation: RowLoading 2s ease infinite;
+}
+
+@-webkit-keyframes RowLoading {
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+}
+@-moz-keyframes RowLoading {
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+}
+@keyframes RowLoading {
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+}
+
 
 .table__cell{
     position: relative;

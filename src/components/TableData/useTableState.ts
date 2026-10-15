@@ -192,24 +192,30 @@ function matchesFilter<T extends object>(row: T, filter: TableFilterRule<T>): bo
   }
 
   if (filter.kind === "text") {
-    const actual = String(fieldValue).toLocaleLowerCase()
-    const expected = filter.value.toLocaleLowerCase()
+    const actual = String(fieldValue).trim().toLocaleLowerCase()
+    const expected = filter.value.trim().toLocaleLowerCase()
     return filter.operator === "equal" ? actual === expected : actual.includes(expected)
   }
 
   if (filter.kind === "number") {
-    if (typeof fieldValue !== "number") return false
+    const actual = typeof fieldValue === "number"
+      ? fieldValue
+      : typeof fieldValue === "string" && fieldValue.trim()
+        ? Number(fieldValue)
+        : Number.NaN
+    if (!Number.isFinite(actual)) return false
+
     const expected = Number(filter.value)
     switch (filter.operator) {
-      case "equal": return fieldValue === expected
-      case "lt": return fieldValue < expected
-      case "gt": return fieldValue > expected
-      case "ltq": return fieldValue <= expected
-      case "gtq": return fieldValue >= expected
+      case "equal": return actual === expected
+      case "lt": return actual < expected
+      case "gt": return actual > expected
+      case "ltq": return actual <= expected
+      case "gtq": return actual >= expected
       case "range":
         return filter.secondValue !== undefined &&
-          fieldValue >= expected &&
-          fieldValue <= Number(filter.secondValue)
+          actual >= expected &&
+          actual <= Number(filter.secondValue)
     }
   }
 

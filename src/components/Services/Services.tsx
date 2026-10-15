@@ -126,11 +126,6 @@ function Services() {
     storageKey: "pigeons-are-drones:services-table:v1",
   })
 
-  // temp
-  if (loading) return <p>Loading services</p>
-  if (error) return <p role="alert">{error}</p>
-  // ----
-
   return (
     <div className="services-tab">
       <TableFilter
@@ -141,11 +136,18 @@ function Services() {
         onClearFilters={table.clearFilters}
       />
       <TableData
-        rows={table.rows}
+        {...(loading
+          ? { status: "loading" as const }
+          : error
+            ? { status: "error" as const, message: error }
+            : {
+                status: "ready" as const,
+                rows: table.rows,
+                getRowKey: (service: Service) => service.id,
+                sort: table.sort,
+                onSortChange: table.changeSort,
+              })}
         columns={columns}
-        getRowKey={(service) => service.id}
-        sort={table.sort}
-        onSortChange={table.changeSort}
       />
     </div>
   )

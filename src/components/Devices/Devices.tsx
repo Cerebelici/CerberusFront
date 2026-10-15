@@ -134,10 +134,6 @@ function Devices() {
     storageKey: "pigeons-are-drones:devices-table:v1",
   })
 
-  // temp
-  if (loading) return <p>Loading devices…</p>
-  if (error) return <p role="alert">{error}</p>
-  // ----
 
   return (
     <div className="devices-tab">
@@ -148,13 +144,28 @@ function Devices() {
         onRemoveFilter={table.removeFilter}
         onClearFilters={table.clearFilters}
       />
-      <TableData
-        rows={table.rows}
-        columns={columns}
-        getRowKey={(device) => device.id}
-        sort={table.sort}
-        onSortChange={table.changeSort}
-      />
+      {
+        loading ? 
+        <TableData
+          status="loading"
+          columns={columns}
+        />
+        : error ?
+        <TableData
+          status="error"
+          columns={columns}
+          message={error}
+        />
+        : 
+        <TableData
+          status="ready"
+          rows={table.rows}
+          columns={columns}
+          getRowKey={(device) => device.id}
+          sort={table.sort}
+          onSortChange={table.changeSort}
+        />
+      }
     </div>
   )
 }
