@@ -6,20 +6,19 @@
   --color-text-main: var(--light-main);
   --color-text-muted: var(--light-secondary);
   
-  --color-status-down: #3a3a3a;
-  --color-status-secure: #2b6cb0;
-  --color-vuln-critical: #c53030;
-  --color-vuln-high: #dd6b20;
-  --color-vuln-medium: #d69e2e;
-  --color-vuln-low: #319795;
+  --color-status-down: var(--bg-quaternary);
+  --color-status-secure: var(--accent-light);
+  --color-vuln-critical: var(--risk-critical);
+  --color-vuln-high: var(--risk-high);
+  --color-vuln-medium: var(--risk-medium);
+  --color-vuln-low: var(--risk-low);
 
-  --color-scan-discovery: #3182ce;
-  --color-scan-immediate: #805ad5;
-  --color-scan-vulnerability: #e53e3e;
+  --color-scan-discovery: var(--accent-light);
+  --color-scan-immediate: var(--risk-medium);
+  --color-scan-vulnerability: var(--risk-critical);
 
-  --font-size-base: 1.2rem;
-  --font-size-sm: 1rem;
-  --border-radius-none: 0rem;
+  --font-size-base: 1.6rem;
+  --font-size-sm: 1.2rem;
 }
 
 .net-timeline-container {
@@ -27,8 +26,8 @@
   flex-direction: column;
   background-color: var(--color-bg);
   color: var(--color-text-main);
-  border: 0.1rem solid var(--color-border);
-  border-radius: var(--border-radius-none);
+  /* border: 0.1rem solid var(--color-border); */
+  border-radius: 0.4rem;
   font-family: monospace, sans-serif;
   font-size: var(--font-size-base);
   width: 100%;
@@ -41,27 +40,27 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 1.6rem;
   background-color: var(--color-surface);
   border-bottom: 0.1rem solid var(--color-border);
 }
 
 .control-group {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   align-items: center;
 }
 
 .control-label {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-  margin-right: 0.5rem;
+  margin-right: 0.4rem;
 }
 
 .control-btn {
   background: var(--color-bg);
   color: var(--color-text-main);
-  border: 0.1rem solid var(--color-border);
+  border: none;
   padding: 0.4rem 0.8rem;
   font-size: var(--font-size-sm);
   cursor: pointer;

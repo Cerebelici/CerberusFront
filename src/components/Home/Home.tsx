@@ -8,10 +8,12 @@ import { NavLink } from 'react-router-dom';
 import { ROUTES } from '../../constants';
 import { useEffect, useState } from 'react';
 import { useUptime, formatDate } from '../../uptime';
+import timelineMockJson from '../../../timelinemock3.json?raw';
 
 const vulnerabilityScore: number = 7.3 //placeholder
 
 const vulnerabilityTotal: number = 267 //placeholder
+const use_mock_data = true;
 
 type VulnerabilityStat = {
   severity: Severity;
@@ -51,6 +53,24 @@ const barChartDataServices: BarDataItem[] = [
   { label: 'COMPROMISED', value: 128 },
 ];
 
+function parseTimeline(body: unknown): NetworkData {
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('time_window' in body) ||
+    typeof body.time_window !== 'object' ||
+    body.time_window === null ||
+    !('scan_ticks' in body) ||
+    !Array.isArray(body.scan_ticks) ||
+    !('devices' in body) ||
+    !Array.isArray(body.devices)
+  ) {
+    throw new Error('The timeline data is invalid');
+  }
+
+  return body as NetworkData;
+}
+
 async function getTimeline(signal?: AbortSignal): Promise<NetworkData> {
   const response = await fetch('/api/timeline', {
     method: 'GET',
@@ -63,22 +83,11 @@ async function getTimeline(signal?: AbortSignal): Promise<NetworkData> {
     throw new Error(`Could not load timeline (HTTP ${response.status})`);
   }
 
-  const body: unknown = await response.json();
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    !('time_window' in body) ||
-    typeof body.time_window !== 'object' ||
-    body.time_window === null ||
-    !('scan_ticks' in body) ||
-    !Array.isArray(body.scan_ticks) ||
-    !('devices' in body) ||
-    !Array.isArray(body.devices)
-  ) {
-    throw new Error('The timeline API returned an invalid response');
-  }
+  return parseTimeline(await response.json());
+}
 
-  return body as NetworkData;
+function getMockTimeline(): NetworkData {
+  return parseTimeline(JSON.parse(timelineMockJson) as unknown);
 }
 
 function Home() {
@@ -89,7 +98,10 @@ function Home() {
   useEffect(() => {
     const controller = new AbortController();
 
-    getTimeline(controller.signal)
+    Promise.resolve()
+      .then(() => use_mock_data
+        ? getMockTimeline()
+        : getTimeline(controller.signal))
       .then(setTimelineData)
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === 'AbortError') return;
