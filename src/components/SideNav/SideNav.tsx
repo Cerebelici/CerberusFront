@@ -1,28 +1,101 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Icon, type IconName } from '../Icon/Icon';
 import { ROUTES } from '../../constants';
+import { formatDate } from '../../uptime';
 // import { FONTS } from '../../constants';
 import './SideNav.css';
 
 type NavItem =
-  | { id: 'home';            label: 'HOME';     route: string; icon: IconName; badge: null;   meta: null }
-  | { id: 'devices';         label: 'DEVICES';  route: string; icon: IconName; badge: number; meta: null }
-  | { id: 'services';        label: 'SERVICES'; route: string; icon: IconName; badge: number; meta: null }
-  | { id: 'vulnerabilities'; label: 'ISSUES';   route: string; icon: IconName; badge: number; meta: null }
-  | { id: 'scans';           label: 'SCANS';    route: string; icon: IconName; badge: null;   meta: { discovered: string; verified: string } };
+  | { id: 'home';            label: 'HOME';     route: string; icon: IconName }
+  | { id: 'devices';         label: 'DEVICES';  route: string; icon: IconName; badge: 'total_devices' }
+  | { id: 'services';        label: 'SERVICES'; route: string; icon: IconName; badge: 'total_services' }
+  | { id: 'vulnerabilities'; label: 'ISSUES';   route: string; icon: IconName; badge: 'total_vulnerabilities' }
+  | { id: 'scans';           label: 'SCANS';    route: string; icon: IconName; meta: true };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'home',            label: 'HOME',     route: ROUTES.HOME,            icon: 'home',              badge: null, meta: null },
-  { id: 'devices',         label: 'DEVICES',  route: ROUTES.DEVICES,         icon: 'computer',          badge: 999,   meta: null },
-  { id: 'services',        label: 'SERVICES', route: ROUTES.SERVICES,        icon: 'linked_services',   badge: 999,  meta: null },
-  { id: 'vulnerabilities', label: 'ISSUES',   route: ROUTES.VULNERABILITIES, icon: 'frame_exclamation', badge: 999,  meta: null },
-  { id: 'scans',           label: 'SCANS',    route: ROUTES.SCANS,           icon: 'mystery',           badge: null, meta: { discovered: '09/09/14 09:14', verified: '09/09/14 09:14' } },
+  { id: 'home',            label: 'HOME',     route: ROUTES.HOME,            icon: 'home' },
+  { id: 'devices',         label: 'DEVICES',  route: ROUTES.DEVICES,         icon: 'computer',          badge: 'total_devices' },
+  { id: 'services',        label: 'SERVICES', route: ROUTES.SERVICES,        icon: 'linked_services',   badge: 'total_services' },
+  { id: 'vulnerabilities', label: 'ISSUES',   route: ROUTES.VULNERABILITIES, icon: 'frame_exclamation', badge: 'total_vulnerabilities' },
+  { id: 'scans',           label: 'SCANS',    route: ROUTES.SCANS,           icon: 'mystery',           meta: true },
 ];
 
+type SystemStatus = {
+  total_devices: number;
+  total_services: number;
+  total_vulnerabilities: number;
+  discovery_next_run: string;
+  vuln_next_run: string;
+};
+
+function isSystemStatus(value: unknown): value is SystemStatus {
+  if (typeof value !== 'object' || value === null) return false;
+
+  return (
+    'total_devices' in value &&
+    typeof value.total_devices === 'number' &&
+    Number.isFinite(value.total_devices) &&
+    value.total_devices >= 0 &&
+    'total_services' in value &&
+    typeof value.total_services === 'number' &&
+    Number.isFinite(value.total_services) &&
+    value.total_services >= 0 &&
+    'total_vulnerabilities' in value &&
+    typeof value.total_vulnerabilities === 'number' &&
+    Number.isFinite(value.total_vulnerabilities) &&
+    value.total_vulnerabilities >= 0 &&
+    'discovery_next_run' in value &&
+    typeof value.discovery_next_run === 'string' &&
+    Number.isFinite(Date.parse(value.discovery_next_run)) &&
+    'vuln_next_run' in value &&
+    typeof value.vuln_next_run === 'string' &&
+    Number.isFinite(Date.parse(value.vuln_next_run))
+  );
+}
+
 function SideNav() {
-  // const [active, setActive] = useState<string>('devices');
   const [collapsed, setCollapsed] = useState(false);
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const refreshStatus = async () => {
+      try {
+        const response = await fetch('/api/status', {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Could not load system status (HTTP ${response.status})`);
+        }
+
+        const body: unknown = await response.json();
+        if (!isSystemStatus(body)) {
+          throw new Error('The system status API returned an invalid response');
+        }
+
+        setStatus(body);
+        setStatusError(null);
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setStatusError(error instanceof Error ? error.message : 'Could not load system status');
+      }
+    };
+
+    void refreshStatus();
+    const intervalId = window.setInterval(() => void refreshStatus(), 30_000);
+
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   return (
     <nav className={`sidenav ${collapsed ? 'sidenav--collapsed' : 'sidenav--expanded'}`}>
@@ -69,18 +142,18 @@ function SideNav() {
                 {/* Badge and meta (extra button display data)*/}
                 {!collapsed && (
                   <>
-                    {item.badge !== null && (
+                    {'badge' in item && (
                       <span className="sidenav__badge" >
-                        {item.badge}
+                        {status ? status[item.badge].toLocaleString() : '—'}
                       </span>
                     )}
-                    {item.meta !== null && (
+                    {'meta' in item && status && (
                       <div className="sidenav__meta">
                         <span className="sidenav__meta-text" >
-                          D: {item.meta.discovered}
+                          D: {formatDate(status.discovery_next_run)}
                         </span>
                         <span className="sidenav__meta-text" >
-                          V: {item.meta.verified}
+                          V: {formatDate(status.vuln_next_run)}
                         </span>
                       </div>
                     )}
@@ -90,6 +163,9 @@ function SideNav() {
             );
           })}
         </div>
+        {!collapsed && statusError && (
+          <p className="sidenav__error" role="alert">{statusError}</p>
+        )}
       </div>
 
       {/* Placeholder logo */}

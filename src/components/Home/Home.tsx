@@ -153,7 +153,7 @@ function Home() {
               {scanWidgetsInfo.map((item) => {
                 return(
                   <div key={item.type} className={`widget uptime-scans__scans uptime-scans__scans--${item.type}`}>
-                    <p className='uptime-scans__scans__label'>Last {item.type} scan:</p>
+                    <p className='uptime-scans__scans__label'>Next {item.type} scan:</p>
                     <p className='uptime-scans__scans__time'>{item.time}</p>
                     <NavLink to={item.route} className='btn btn--light uptime-scans__scans__button'>Go to scans</NavLink>
                   </div>

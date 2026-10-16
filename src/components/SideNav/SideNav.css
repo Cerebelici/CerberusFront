@@ -162,6 +162,14 @@
   white-space: nowrap;
 }
 
+.sidenav__error {
+  margin: 0;
+  padding: 0 1.6rem;
+  color: var(--light-secondary);
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
 /* Logo Placeholder */
 .sidenav__logo {
   display: flex;
