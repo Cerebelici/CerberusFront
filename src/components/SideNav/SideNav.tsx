@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Icon, type IconName } from '../Icon/Icon';
 import { ROUTES } from '../../constants';
 import { formatDate } from '../../uptime';
+import { useSystemStatus } from '../../state/useSystemStatus';
 // import { FONTS } from '../../constants';
 import './SideNav.css';
 
@@ -21,81 +22,20 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'scans',           label: 'SCANS',    route: ROUTES.SCANS,           icon: 'mystery',           meta: true },
 ];
 
-type SystemStatus = {
-  total_devices: number;
-  total_services: number;
-  total_vulnerabilities: number;
-  discovery_next_run: string;
-  vuln_next_run: string;
-};
+type BadgeKey = 'total_devices' | 'total_services' | 'total_vulnerabilities';
 
-function isSystemStatus(value: unknown): value is SystemStatus {
-  if (typeof value !== 'object' || value === null) return false;
-
-  return (
-    'total_devices' in value &&
-    typeof value.total_devices === 'number' &&
-    Number.isFinite(value.total_devices) &&
-    value.total_devices >= 0 &&
-    'total_services' in value &&
-    typeof value.total_services === 'number' &&
-    Number.isFinite(value.total_services) &&
-    value.total_services >= 0 &&
-    'total_vulnerabilities' in value &&
-    typeof value.total_vulnerabilities === 'number' &&
-    Number.isFinite(value.total_vulnerabilities) &&
-    value.total_vulnerabilities >= 0 &&
-    'discovery_next_run' in value &&
-    typeof value.discovery_next_run === 'string' &&
-    Number.isFinite(Date.parse(value.discovery_next_run)) &&
-    'vuln_next_run' in value &&
-    typeof value.vuln_next_run === 'string' &&
-    Number.isFinite(Date.parse(value.vuln_next_run))
-  );
+function nextRunText(nextRun: string | null | undefined, running: boolean): string {
+  if (running) return 'RUNNING';
+  return nextRun ? formatDate(nextRun) : '—';
 }
 
 function SideNav() {
   const [collapsed, setCollapsed] = useState(false);
-  const [status, setStatus] = useState<SystemStatus | null>(null);
-  const [statusError, setStatusError] = useState<string | null>(null);
+  // Status is polled once for the whole app by <SystemStatusProvider>.
+  const { status, error: statusError } = useSystemStatus();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const refreshStatus = async () => {
-      try {
-        const response = await fetch('/api/status', {
-          method: 'GET',
-          signal: controller.signal,
-          headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Could not load system status (HTTP ${response.status})`);
-        }
-
-        const body: unknown = await response.json();
-        if (!isSystemStatus(body)) {
-          throw new Error('The system status API returned an invalid response');
-        }
-
-        setStatus(body);
-        setStatusError(null);
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setStatusError(error instanceof Error ? error.message : 'Could not load system status');
-      }
-    };
-
-    void refreshStatus();
-    const intervalId = window.setInterval(() => void refreshStatus(), 30_000);
-
-    return () => {
-      controller.abort();
-      window.clearInterval(intervalId);
-    };
-  }, []);
+  const badgeValue = (key: BadgeKey): string =>
+    status ? status[key].toLocaleString() : '—';
 
   return (
     <nav className={`sidenav ${collapsed ? 'sidenav--collapsed' : 'sidenav--expanded'}`}>
@@ -144,16 +84,16 @@ function SideNav() {
                   <>
                     {'badge' in item && (
                       <span className="sidenav__badge" >
-                        {status ? status[item.badge].toLocaleString() : '—'}
+                        {badgeValue(item.badge)}
                       </span>
                     )}
                     {'meta' in item && status && (
                       <div className="sidenav__meta">
                         <span className="sidenav__meta-text" >
-                          D: {formatDate(status.discovery_next_run)}
+                          D: {nextRunText(status.discovery_next_run, status.is_discovery_running)}
                         </span>
                         <span className="sidenav__meta-text" >
-                          V: {formatDate(status.vuln_next_run)}
+                          V: {nextRunText(status.vuln_next_run, status.is_vuln_running)}
                         </span>
                       </div>
                     )}

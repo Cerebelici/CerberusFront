@@ -5,15 +5,16 @@ import { NetworkTimeline, type NetworkData } from '../Timeline/Timeline';
 import type { BarDataItem } from '../BarChart/BarChart';
 import type { Severity } from '../../constants';
 import { NavLink } from 'react-router-dom';
-import { ROUTES } from '../../constants';
-import { useEffect, useState } from 'react';
+import { ROUTES, SEVERITY_LABELS, SEVERITY_ORDER, severityFromScore } from '../../constants';
+import { useEffect, useMemo, useState } from 'react';
 import { useUptime, formatDate } from '../../uptime';
+import { useApiResource } from '../../hooks/useApiResource';
+import { fetchDevices, fetchServices, fetchVulnerabilities } from '../../api/inventory';
+import { fetchPosture } from '../../api/system';
+import type { PostureReportDTO, ServiceDTO, VulnerabilityDTO } from '../../api/types';
+import { useSystemStatus } from '../../state/useSystemStatus';
+import type { ScanType } from '../scan';
 import timelineMockJson from '../../../timelinemock3.json?raw';
-
-const vulnerabilityScore: number = 7.3 //placeholder
-
-const vulnerabilityTotal: number = 267 //placeholder
-const use_mock_data = true;
 
 type VulnerabilityStat = {
   severity: Severity;
@@ -21,37 +22,54 @@ type VulnerabilityStat = {
   count: number;
 };
 
-type ScanType = 'discovery' | 'vulnerability';
-
 type ScanWidgetsInfo = {
   type: ScanType;
   route: string;
   time: string;
 };
 
-const vulnerabilityStats: VulnerabilityStat[] = [
-  { severity: 'critical', label: "CRITICAL", count: 32 },
-  { severity: 'high',  label: "HIGH",count: 12 },
-  { severity: 'medium', label: "MEDIUM",count: 47 },
-  { severity: 'low', label: "LOW",count: 176 },
-];
+// Timeline data source toggle (upstream f74335d) — intentionally left as-is.
+const use_mock_data = true;
 
-const scanWidgetsInfo: ScanWidgetsInfo[] = [
-  { type: 'discovery', route: ROUTES.SCANS, time: "11/09/26 11:32" }, //todo: need to also specify in the route whether it is discovery or vulnerability
-  { type: 'vulnerability', route: ROUTES.SCANS, time:"11/09/26 11:32" },
-]
+const PLACEHOLDER = '—';
 
-const barChartDataDevices: BarDataItem[] = [ 
-  { label: 'TOTAL', value: 324 },
-  { label: 'OPEN', value: 227 },
-  { label: 'COMPROMISED', value: 78 },
-];
+// Fleet health is reported on a 0–100 scale (100 = healthy). The donut shows the
+// complementary 0–10 risk so it lines up with CVSS-style severity ranks.
+const RISK_SCALE_MAX = 10;
 
-const barChartDataServices: BarDataItem[] = [ 
-  { label: 'TOTAL', value: 684 },
-  { label: 'OPEN', value: 327 },
-  { label: 'COMPROMISED', value: 128 },
-];
+function fleetRiskScore(posture: PostureReportDTO | null): number {
+  if (!posture || posture.fleet_score === null) return 0;
+  const risk = (100 - posture.fleet_score) / (100 / RISK_SCALE_MAX);
+  return Math.min(RISK_SCALE_MAX, Math.max(0, Math.round(risk * 100) / 100));
+}
+
+function countBySeverity(openVulns: readonly VulnerabilityDTO[]): VulnerabilityStat[] {
+  return SEVERITY_ORDER.map((severity) => ({
+    severity,
+    label: SEVERITY_LABELS[severity],
+    count: openVulns.filter((vuln) => vuln.severity.toLowerCase() === severity).length,
+  }));
+}
+
+function compromisedServiceCount(services: readonly ServiceDTO[], openVulns: readonly VulnerabilityDTO[]): number {
+  const vulnerablePorts = new Set(openVulns.map((vuln) => `${vuln.device_id}:${vuln.service_port}`));
+  return services.filter(
+    (service) => service.state === 'open' && vulnerablePorts.has(`${service.device_id}:${service.port}`),
+  ).length;
+}
+
+// Picks a y-axis step that keeps the 5 BarChart ticks integral and the bars readable
+// for anything from a lab subnet (a handful of hosts) to a large estate.
+const BAR_CHART_STEPS = [4, 8, 20, 40, 100, 200, 400, 1000, 2000, 4000, 10000] as const;
+function barChartStep(data: readonly BarDataItem[]): number {
+  const peak = Math.max(0, ...data.map((item) => item.value));
+  return BAR_CHART_STEPS.find((step) => peak <= step) ?? Math.ceil(peak / 4) * 4;
+}
+
+function nextRunLabel(nextRun: string | null | undefined, running: boolean): string {
+  if (running) return 'RUNNING';
+  return nextRun ? formatDate(nextRun) : PLACEHOLDER;
+}
 
 function parseTimeline(body: unknown): NetworkData {
   if (
@@ -112,36 +130,85 @@ function Home() {
     return () => controller.abort();
   }, []);
 
-  // Calculate severity rank
-  var SeverityRank: Severity = 'none';
-  if (vulnerabilityScore >= 9.0) SeverityRank = 'critical';
-  else if (vulnerabilityScore >= 7.0) SeverityRank = 'high';
-  else if (vulnerabilityScore >= 4.0) SeverityRank = 'medium';
-  else if (vulnerabilityScore > 0) SeverityRank = 'low';
+  // Live dashboard data. Everything re-fetches automatically when a scan finishes.
+  const { status, error: statusError, backendStartedAt, scanGeneration } = useSystemStatus();
+  const posture = useApiResource(fetchPosture, scanGeneration);
+  const devices = useApiResource(fetchDevices, scanGeneration);
+  const services = useApiResource(fetchServices, scanGeneration);
+  const vulnerabilities = useApiResource(fetchVulnerabilities, scanGeneration);
 
-  // Simulated App Start Date
-  const [activeSince, _] = useState<string>('2026-09-20T11:32:00Z');
-  const uptimeDisplay = useUptime(activeSince);
-  const activeSinceFormated = formatDate(activeSince)
+  const openVulns = useMemo(
+    () => (vulnerabilities.data ?? []).filter((vuln) => vuln.status === 'open'),
+    [vulnerabilities.data],
+  );
+
+  const vulnerabilityScore = fleetRiskScore(posture.data);
+  const severityRank: Severity = severityFromScore(vulnerabilityScore);
+  const vulnerabilityTotal = vulnerabilities.data ? openVulns.length : status?.total_vulnerabilities ?? null;
+  const vulnerabilityStats = useMemo(() => countBySeverity(openVulns), [openVulns]);
+
+  const barChartDataDevices = useMemo<BarDataItem[]>(() => {
+    const list = devices.data ?? [];
+    return [
+      { label: 'TOTAL', value: devices.data ? list.length : status?.total_devices ?? 0 },
+      { label: 'ONLINE', value: devices.data ? list.filter((d) => d.status === 'up').length : status?.active_devices ?? 0 },
+      { label: 'COMPROMISED', value: list.filter((d) => (d.vulnerabilities_count ?? 0) > 0).length },
+    ];
+  }, [devices.data, status?.total_devices, status?.active_devices]);
+
+  const barChartDataServices = useMemo<BarDataItem[]>(() => {
+    const list = services.data ?? [];
+    return [
+      { label: 'TOTAL', value: list.length },
+      { label: 'OPEN', value: services.data ? list.filter((s) => s.state === 'open').length : status?.total_services ?? 0 },
+      { label: 'COMPROMISED', value: compromisedServiceCount(list, openVulns) },
+    ];
+  }, [services.data, openVulns, status?.total_services]);
+
+  const scanWidgetsInfo: ScanWidgetsInfo[] = [
+    {
+      type: 'discovery',
+      route: `${ROUTES.SCANS}?type=discovery`,
+      time: nextRunLabel(status?.discovery_next_run, status?.is_discovery_running ?? false),
+    },
+    {
+      type: 'vulnerability',
+      route: `${ROUTES.SCANS}?type=vulnerability`,
+      time: nextRunLabel(status?.vuln_next_run, status?.is_vuln_running ?? false),
+    },
+  ];
+
+  // Backend process start time, derived from the reported uptime.
+  const activeSince = backendStartedAt;
+  const uptimeDisplay = useUptime(activeSince ?? 0);
+  const activeSinceFormated = activeSince ? formatDate(activeSince) : PLACEHOLDER;
+
+  const dataErrors = [statusError, posture.error, devices.error, services.error, vulnerabilities.error]
+    .filter((message): message is string => message !== null);
 
   return (
     <div className='dashboard-shell'>
+      {dataErrors.length > 0 && (
+        <div className='dashboard__errors' role='alert'>
+          {[...new Set(dataErrors)].map((message) => <p key={message}>{message}</p>)}
+        </div>
+      )}
       <div className='dashboard'>
           {/* Row 1 */}
           <div className='widget widget--vuln-score'>
-            <DonutChart score={vulnerabilityScore} maxScore={10} rank={SeverityRank}/>
+            <DonutChart score={vulnerabilityScore} maxScore={RISK_SCALE_MAX} rank={severityRank}/>
           </div>
 
           <div className='widget widget--vuln-stats'>
             <div className='vuln-stats__list'>
               <div className='vuln-stats__item vuln-stats__item--header'>
-                <p className='vuln-stats__item__score'>{vulnerabilityTotal}</p>
+                <p className='vuln-stats__item__score'>{vulnerabilityTotal ?? PLACEHOLDER}</p>
                 <p className='vuln-stats__item__label'>Total vulnerabilities</p>
               </div>
               {vulnerabilityStats.map((item) => {
                   return(
                     <div key={item.severity} className={`vuln-stats__item vuln-stats__item--${item.severity}`}>
-                      <p className='vuln-stats__item__score'>{item.count}</p>
+                      <p className='vuln-stats__item__score'>{vulnerabilities.data ? item.count : PLACEHOLDER}</p>
                       <p className='vuln-stats__item__label'>{item.label}</p>
                     </div>
                   )
@@ -155,7 +222,7 @@ function Home() {
               <div className='widget uptime-scans__uptime'>
                 <div className='uptime-scans__uptime__wrap'>
                   <p className='uptime-scans__uptime__title'>TOTAL UPTIME</p>
-                  <p className='uptime-scans__uptime__countdown'>{uptimeDisplay}</p>
+                  <p className='uptime-scans__uptime__countdown'>{activeSince ? uptimeDisplay : PLACEHOLDER}</p>
                 </div>
                 <p className='uptime-scans__uptime__label'>
                   Active since: <span className='uptime-scans__uptime__time' >{activeSinceFormated}</span>
@@ -175,10 +242,10 @@ function Home() {
 
           {/* Row 2 */}
           <div className='widget widget--devices-chart'>
-            <BarChart title='Devices' data={barChartDataDevices}/>
+            <BarChart title='Devices' data={barChartDataDevices} step={barChartStep(barChartDataDevices)}/>
           </div>
           <div className='widget widget--services-chart'>
-            <BarChart title='Services' data={barChartDataServices}/>
+            <BarChart title='Services' data={barChartDataServices} step={barChartStep(barChartDataServices)}/>
           </div>
 
           {/* Row 3 */}

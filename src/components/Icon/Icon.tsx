@@ -13,6 +13,10 @@ export type IconName =
     | 'search'
     | 'arrow_drop_down'
     | 'add'
+    | 'radar'
+    | 'bug_report'
+    | 'progress_activity'
+    | 'refresh'
 
 interface IconProps extends React.HTMLAttributes<HTMLSpanElement> {
   name: IconName;
