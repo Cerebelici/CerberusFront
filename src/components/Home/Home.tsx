@@ -5,12 +5,16 @@ import { NetworkTimeline, type NetworkData } from '../Timeline/Timeline';
 import type { BarDataItem } from '../BarChart/BarChart';
 import type { Severity } from '../../constants';
 import { NavLink } from 'react-router-dom';
-import { ROUTES } from '../../constants';
-import { useEffect, useState, useMemo } from 'react';
+import { ROUTES, SEVERITY_LABELS, SEVERITY_ORDER, severityFromScore } from '../../constants';
+import { useEffect, useMemo, useState } from 'react';
 import { useUptime, formatDate } from '../../uptime';
+import { useApiResource } from '../../hooks/useApiResource';
+import { fetchDevices, fetchServices, fetchVulnerabilities } from '../../api/inventory';
+import { fetchPosture } from '../../api/system';
+import type { PostureReportDTO, ServiceDTO, VulnerabilityDTO } from '../../api/types';
+import { useSystemStatus } from '../../state/useSystemStatus';
+import type { ScanType } from '../scan';
 import timelineMockJson from '../../../timelinemock3.json?raw';
-
-const use_mock_data = false;
 
 type VulnerabilityStat = {
   severity: Severity;
@@ -18,54 +22,53 @@ type VulnerabilityStat = {
   count: number;
 };
 
-type ScanType = 'discovery' | 'vulnerability';
-
 type ScanWidgetsInfo = {
   type: ScanType;
   route: string;
   time: string;
 };
 
-interface SystemStatus {
-  uptime?: string;
-  uptime_seconds?: number;
-  active_devices?: number;
-  total_devices?: number;
-  total_services?: number;
-  total_vulnerabilities?: number;
-  discovery_next_run?: string;
-  vuln_next_run?: string;
-  is_discovery_running?: boolean;
-  is_vuln_running?: boolean;
-  fleet_score?: number;
+// Timeline data source toggle: set to false to use live API, true for static mock
+const use_mock_data = false;
+
+const PLACEHOLDER = '—';
+
+// Fleet health is reported on a 0–100 scale (100 = healthy). The donut shows the
+// complementary 0–10 risk so it lines up with CVSS-style severity ranks.
+const RISK_SCALE_MAX = 10;
+
+function fleetRiskScore(posture: PostureReportDTO | null): number {
+  if (!posture || posture.fleet_score === null) return 0;
+  const risk = (100 - posture.fleet_score) / (100 / RISK_SCALE_MAX);
+  return Math.min(RISK_SCALE_MAX, Math.max(0, Math.round(risk * 100) / 100));
 }
 
-interface PostureReport {
-  fleet_score?: number | null;
-  mean_risk?: number;
-  max_risk?: number;
+function countBySeverity(openVulns: readonly VulnerabilityDTO[]): VulnerabilityStat[] {
+  return SEVERITY_ORDER.map((severity) => ({
+    severity,
+    label: SEVERITY_LABELS[severity],
+    count: openVulns.filter((vuln) => vuln.severity.toLowerCase() === severity).length,
+  }));
 }
 
-interface DeviceItem {
-  id: number;
-  status: 'up' | 'down';
-  vulnerabilities_count?: number;
-  risk?: number;
+function compromisedServiceCount(services: readonly ServiceDTO[], openVulns: readonly VulnerabilityDTO[]): number {
+  const vulnerablePorts = new Set(openVulns.map((vuln) => `${vuln.device_id}:${vuln.service_port}`));
+  return services.filter(
+    (service) => service.state === 'open' && vulnerablePorts.has(`${service.device_id}:${service.port}`),
+  ).length;
 }
 
-interface ServiceItem {
-  id: number;
-  device_id: number;
-  port: number;
-  state: 'open' | 'closed';
+// Picks a y-axis step that keeps the 5 BarChart ticks integral and the bars readable
+// for anything from a lab subnet (a handful of hosts) to a large estate.
+const BAR_CHART_STEPS = [4, 8, 20, 40, 100, 200, 400, 1000, 2000, 4000, 10000] as const;
+function barChartStep(data: readonly BarDataItem[]): number {
+  const peak = Math.max(0, ...data.map((item) => item.value));
+  return BAR_CHART_STEPS.find((step) => peak <= step) ?? Math.ceil(peak / 4) * 4;
 }
 
-interface VulnerabilityItem {
-  id: number;
-  device_id: number;
-  service_port?: number;
-  severity: string;
-  cvss_score: number;
+function nextRunLabel(nextRun: string | null | undefined, running: boolean): string {
+  if (running) return 'RUNNING';
+  return nextRun ? formatDate(nextRun) : PLACEHOLDER;
 }
 
 function parseTimeline(body: unknown): NetworkData {
@@ -105,31 +108,22 @@ function getMockTimeline(): NetworkData {
   return parseTimeline(JSON.parse(timelineMockJson) as unknown);
 }
 
-function calculateSeverityRank(score: number): Severity {
-  if (score >= 9.0) return 'critical';
-  if (score >= 7.0) return 'high';
-  if (score >= 4.0) return 'medium';
-  if (score > 0) return 'low';
-  return 'none';
-}
-
 function Home() {
   const [timelineData, setTimelineData] = useState<NetworkData | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [timelineError, setTimelineError] = useState<string | null>(null);
 
-  const [activeSince, setActiveSince] = useState<string | null>(null);
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [posture, setPosture] = useState<PostureReport | null>(null);
-  const [devices, setDevices] = useState<DeviceItem[]>([]);
-  const [services, setServices] = useState<ServiceItem[]>([]);
-  const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityItem[]>([]);
+  // Live dashboard data. Everything re-fetches automatically when a scan finishes.
+  const { status, error: statusError, backendStartedAt, scanGeneration } = useSystemStatus();
+  const posture = useApiResource(fetchPosture, scanGeneration);
+  const devices = useApiResource(fetchDevices, scanGeneration);
+  const services = useApiResource(fetchServices, scanGeneration);
+  const vulnerabilities = useApiResource(fetchVulnerabilities, scanGeneration);
 
   useEffect(() => {
     const controller = new AbortController();
-    const signal = controller.signal;
 
-    (use_mock_data ? Promise.resolve(getMockTimeline()) : getTimeline(signal))
+    (use_mock_data ? Promise.resolve(getMockTimeline()) : getTimeline(controller.signal))
       .then(setTimelineData)
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === 'AbortError') return;
@@ -137,173 +131,80 @@ function Home() {
       })
       .finally(() => setTimelineLoading(false));
 
-    // Fetch real metrics for the dashboard widgets
-    const fetchDashboardMetrics = async () => {
-      try {
-        const [statusRes, postureRes, devicesRes, servicesRes, vulnsRes] = await Promise.allSettled([
-          fetch('/api/status', { signal, headers: { Accept: 'application/json' } }),
-          fetch('/api/posture', { signal, headers: { Accept: 'application/json' } }),
-          fetch('/api/devices', { signal, headers: { Accept: 'application/json' } }),
-          fetch('/api/services', { signal, headers: { Accept: 'application/json' } }),
-          fetch('/api/vulnerabilities', { signal, headers: { Accept: 'application/json' } }),
-        ]);
+    return () => controller.abort();
+  }, [scanGeneration]);
 
-        if (statusRes.status === 'fulfilled' && statusRes.value.ok) {
-          const data = (await statusRes.value.json()) as SystemStatus;
-          setSystemStatus(data);
-          if (typeof data.uptime_seconds === 'number') {
-            setActiveSince(new Date(Date.now() - data.uptime_seconds * 1000).toISOString());
-          }
-        }
+  const openVulns = useMemo(
+    () => (vulnerabilities.data ?? []).filter((vuln) => vuln.status === 'open'),
+    [vulnerabilities.data],
+  );
 
-        if (postureRes.status === 'fulfilled' && postureRes.value.ok) {
-          const data = (await postureRes.value.json()) as PostureReport;
-          setPosture(data);
-        }
+  const vulnerabilityScore = fleetRiskScore(posture.data);
+  const severityRank: Severity = severityFromScore(vulnerabilityScore);
+  const vulnerabilityTotal = vulnerabilities.data ? openVulns.length : status?.total_vulnerabilities ?? null;
+  const vulnerabilityStats = useMemo(() => countBySeverity(openVulns), [openVulns]);
 
-        if (devicesRes.status === 'fulfilled' && devicesRes.value.ok) {
-          const data = (await devicesRes.value.json()) as { devices?: DeviceItem[] };
-          if (Array.isArray(data.devices)) setDevices(data.devices);
-        }
-
-        if (servicesRes.status === 'fulfilled' && servicesRes.value.ok) {
-          const data = (await servicesRes.value.json()) as { services?: ServiceItem[] };
-          if (Array.isArray(data.services)) setServices(data.services);
-        }
-
-        if (vulnsRes.status === 'fulfilled' && vulnsRes.value.ok) {
-          const data = (await vulnsRes.value.json()) as { vulnerabilities?: VulnerabilityItem[] };
-          if (Array.isArray(data.vulnerabilities)) setVulnerabilities(data.vulnerabilities);
-        }
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-      }
-    };
-
-    void fetchDashboardMetrics();
-    const intervalId = window.setInterval(() => void fetchDashboardMetrics(), 30_000);
-
-    return () => {
-      controller.abort();
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  // Vulnerability Score: from live posture mean_risk or derived from fleet_score
-  const vulnerabilityScore = useMemo(() => {
-    if (typeof posture?.mean_risk === 'number') {
-      return posture.mean_risk;
-    }
-    if (typeof posture?.fleet_score === 'number') {
-      return Math.max(0, (100 - posture.fleet_score) / 10);
-    }
-    if (typeof systemStatus?.fleet_score === 'number') {
-      return Math.max(0, (100 - systemStatus.fleet_score) / 10);
-    }
-    return 0;
-  }, [posture, systemStatus]);
-
-  const severityRank = useMemo(() => calculateSeverityRank(vulnerabilityScore), [vulnerabilityScore]);
-
-  // Vulnerability Totals and breakdown by severity
-  const vulnerabilityTotal = systemStatus?.total_vulnerabilities ?? vulnerabilities.length;
-
-  const vulnerabilityStats: VulnerabilityStat[] = useMemo(() => {
-    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-    for (const v of vulnerabilities) {
-      const sev = v.severity?.toLowerCase();
-      if (sev === 'critical') counts.critical++;
-      else if (sev === 'high') counts.high++;
-      else if (sev === 'medium') counts.medium++;
-      else if (sev === 'low') counts.low++;
-    }
-
+  const barChartDataDevices = useMemo<BarDataItem[]>(() => {
+    const list = devices.data ?? [];
     return [
-      { severity: 'critical', label: 'CRITICAL', count: counts.critical },
-      { severity: 'high', label: 'HIGH', count: counts.high },
-      { severity: 'medium', label: 'MEDIUM', count: counts.medium },
-      { severity: 'low', label: 'LOW', count: counts.low },
+      { label: 'TOTAL', value: devices.data ? list.length : status?.total_devices ?? 0 },
+      { label: 'ONLINE', value: devices.data ? list.filter((d) => d.status === 'up').length : status?.active_devices ?? 0 },
+      { label: 'COMPROMISED', value: list.filter((d) => (d.vulnerabilities_count ?? 0) > 0).length },
     ];
-  }, [vulnerabilities]);
+  }, [devices.data, status?.total_devices, status?.active_devices]);
 
-  const uptimeDisplay = useUptime(activeSince);
-  const activeSinceFormated = formatDate(activeSince);
+  const barChartDataServices = useMemo<BarDataItem[]>(() => {
+    const list = services.data ?? [];
+    return [
+      { label: 'TOTAL', value: list.length },
+      { label: 'OPEN', value: services.data ? list.filter((s) => s.state === 'open').length : status?.total_services ?? 0 },
+      { label: 'COMPROMISED', value: compromisedServiceCount(list, openVulns) },
+    ];
+  }, [services.data, openVulns, status?.total_services]);
 
-  // Next Scans Widget info
-  const scanWidgetsInfo: ScanWidgetsInfo[] = useMemo(() => [
+  const scanWidgetsInfo: ScanWidgetsInfo[] = [
     {
       type: 'discovery',
-      route: ROUTES.SCANS,
-      time: systemStatus?.is_discovery_running
-        ? 'Scanning...'
-        : formatDate(systemStatus?.discovery_next_run),
+      route: `${ROUTES.SCANS}?type=discovery`,
+      time: nextRunLabel(status?.discovery_next_run, status?.is_discovery_running ?? false),
     },
     {
       type: 'vulnerability',
-      route: ROUTES.SCANS,
-      time: systemStatus?.is_vuln_running
-        ? 'Scanning...'
-        : formatDate(systemStatus?.vuln_next_run),
+      route: `${ROUTES.SCANS}?type=vulnerability`,
+      time: nextRunLabel(status?.vuln_next_run, status?.is_vuln_running ?? false),
     },
-  ], [systemStatus]);
+  ];
 
-  // Devices bar chart data
-  const barChartDataDevices: BarDataItem[] = useMemo(() => {
-    const total = devices.length > 0 ? devices.length : (systemStatus?.total_devices ?? 0);
-    const open = devices.length > 0
-      ? devices.filter((d) => d.status === 'up').length
-      : (systemStatus?.active_devices ?? 0);
-    const compromised = devices.filter(
-      (d) => (d.vulnerabilities_count ?? 0) > 0 || (d.risk ?? 0) > 0
-    ).length;
+  // Backend process start time, derived from the reported uptime.
+  const activeSince = backendStartedAt;
+  const uptimeDisplay = useUptime(activeSince ?? 0);
+  const activeSinceFormated = activeSince ? formatDate(activeSince) : PLACEHOLDER;
 
-    return [
-      { label: 'TOTAL', value: total },
-      { label: 'OPEN', value: open },
-      { label: 'COMPROMISED', value: compromised },
-    ];
-  }, [devices, systemStatus]);
-
-  // Services bar chart data
-  const barChartDataServices: BarDataItem[] = useMemo(() => {
-    const total = services.length > 0 ? services.length : (systemStatus?.total_services ?? 0);
-    const open = services.filter((s) => s.state === 'open').length;
-
-    const compromisedServicePorts = new Set(
-      vulnerabilities.filter((v) => v.service_port).map((v) => `${v.device_id}:${v.service_port}`)
-    );
-    const vulnerableDeviceIds = new Set(vulnerabilities.map((v) => v.device_id));
-
-    const compromised = services.filter((s) => {
-      if (compromisedServicePorts.has(`${s.device_id}:${s.port}`)) return true;
-      if (vulnerableDeviceIds.has(s.device_id) && s.state === 'open') return true;
-      return false;
-    }).length;
-
-    return [
-      { label: 'TOTAL', value: total },
-      { label: 'OPEN', value: open },
-      { label: 'COMPROMISED', value: compromised },
-    ];
-  }, [services, systemStatus, vulnerabilities]);
+  const dataErrors = [statusError, posture.error, devices.error, services.error, vulnerabilities.error]
+    .filter((message): message is string => message !== null);
 
   return (
     <div className='dashboard-shell'>
+      {dataErrors.length > 0 && (
+        <div className='dashboard__errors' role='alert'>
+          {[...new Set(dataErrors)].map((message) => <p key={message}>{message}</p>)}
+        </div>
+      )}
       <div className='dashboard'>
         {/* Row 1 */}
         <div className='widget widget--vuln-score'>
-          <DonutChart score={vulnerabilityScore} maxScore={10} rank={severityRank} />
+          <DonutChart score={vulnerabilityScore} maxScore={RISK_SCALE_MAX} rank={severityRank} />
         </div>
 
         <div className='widget widget--vuln-stats'>
           <div className='vuln-stats__list'>
             <div className='vuln-stats__item vuln-stats__item--header'>
-              <p className='vuln-stats__item__score'>{vulnerabilityTotal}</p>
+              <p className='vuln-stats__item__score'>{vulnerabilityTotal ?? PLACEHOLDER}</p>
               <p className='vuln-stats__item__label'>Total vulnerabilities</p>
             </div>
             {vulnerabilityStats.map((item) => (
               <div key={item.severity} className={`vuln-stats__item vuln-stats__item--${item.severity}`}>
-                <p className='vuln-stats__item__score'>{item.count}</p>
+                <p className='vuln-stats__item__score'>{vulnerabilities.data ? item.count : PLACEHOLDER}</p>
                 <p className='vuln-stats__item__label'>{item.label}</p>
               </div>
             ))}
@@ -315,7 +216,7 @@ function Home() {
           <div className='widget uptime-scans__uptime'>
             <div className='uptime-scans__uptime__wrap'>
               <p className='uptime-scans__uptime__title'>TOTAL UPTIME</p>
-              <p className='uptime-scans__uptime__countdown'>{uptimeDisplay}</p>
+              <p className='uptime-scans__uptime__countdown'>{activeSince ? uptimeDisplay : PLACEHOLDER}</p>
             </div>
             <p className='uptime-scans__uptime__label'>
               Active since: <span className='uptime-scans__uptime__time'>{activeSinceFormated}</span>
@@ -335,10 +236,10 @@ function Home() {
 
         {/* Row 2 */}
         <div className='widget widget--devices-chart'>
-          <BarChart title='Devices' data={barChartDataDevices} />
+          <BarChart title='Devices' data={barChartDataDevices} step={barChartStep(barChartDataDevices)} />
         </div>
         <div className='widget widget--services-chart'>
-          <BarChart title='Services' data={barChartDataServices} />
+          <BarChart title='Services' data={barChartDataServices} step={barChartStep(barChartDataServices)} />
         </div>
 
         {/* Row 3 */}

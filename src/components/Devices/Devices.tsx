@@ -3,23 +3,12 @@ import TableFilter from "../TableFilter/TableFilter"
 import TableData from "../TableData/TableData"
 import { useTableState } from "../TableData/useTableState"
 import type { TableColumn } from "../TableData/TableTypes"
-import { useEffect, useState } from "react"
-
-interface DeviceJSON{
-  id: number
-  current_ip: string
-  ip?: string
-  mac?: string
-  hostname?: string
-  vendor?: string
-  status: "up" | "down"
-  first_seen: string
-  last_seen: string
-  services_count?: number
-  vulnerabilities_count?: number
-  risk?: number
-  score?: number
-}
+import { useMemo } from "react"
+import { fetchDevices } from "../../api/inventory"
+import type { DeviceDTO, DeviceStatus } from "../../api/types"
+import { useApiResource } from "../../hooks/useApiResource"
+import { useSystemStatus } from "../../state/useSystemStatus"
+import { TABLE_STORAGE_KEYS } from "../../constants"
 
 interface Device {
   id: number
@@ -27,22 +16,24 @@ interface Device {
   vendor: string | null
   ip: string
   mac: string | null
-  status: "up" | "down"
-  riskScore: number | null
+  status: DeviceStatus
+  riskScore: number
   vulnerabilitiesCount: number | null
   servicesCount: number | null
   lastSeen: string
 }
 
-function toDevice(deviceJSON: DeviceJSON): Device{
+function toDevice(deviceJSON: DeviceDTO): Device {
   return {
     id: deviceJSON.id,
-    hostname: deviceJSON.hostname ?? null, 
+    // An operator-assigned label wins over the scanned hostname.
+    hostname: deviceJSON.label || deviceJSON.hostname || null,
     vendor: deviceJSON.vendor ?? null,
     ip: deviceJSON.current_ip || deviceJSON.ip || "",
     mac: deviceJSON.mac ?? null,
     status: deviceJSON.status,
-    riskScore: typeof deviceJSON.risk === "number" ? deviceJSON.risk : 0.0,
+    // Host risk R_h (0–10) from the posture engine; the backend omits it when 0.
+    riskScore: typeof deviceJSON.risk === "number" ? deviceJSON.risk : 0,
     vulnerabilitiesCount: deviceJSON.vulnerabilities_count ?? 0,
     servicesCount: deviceJSON.services_count ?? 0,
     lastSeen: deviceJSON.last_seen,
@@ -78,56 +69,16 @@ const columns: TableColumn<Device>[] = [
   },
 ]
 
-async function getDevices(signal?: AbortSignal): Promise<DeviceJSON[]>{
-  const response = await fetch("/api/devices", {
-    method: "GET",
-    signal, 
-    headers: { Accept: "application/json" },
-    credentials: "same-origin",
-  })
-
-  if (!response.ok) {
-    throw new Error(`Could not load devices (HTTP ${response.status})`)
-  }
-
-  const body: unknown = await response.json()
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("devices" in body) ||
-    !Array.isArray(body.devices)
-  ) {
-    throw new Error("The devices API returned an invalid response")
-  }
-  
-  return body.devices as DeviceJSON[]
-}
-
 function Devices() {
-  const [devices, setDevices] = useState<DeviceJSON[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    getDevices(controller.signal)
-      .then(setDevices)
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return
-        setError(error instanceof Error ? error.message : "Could not load devices")
-      })
-      .finally(() => setLoading(false))
-
-      return () => controller.abort()
-  }, [])
+  const { scanGeneration } = useSystemStatus()
+  const { data, loading, error } = useApiResource(fetchDevices, scanGeneration)
+  const rows = useMemo(() => (data ?? []).map(toDevice), [data])
 
   const table = useTableState({
-    rows: devices.map(toDevice),
+    rows,
     columns,
-    storageKey: "pigeons-are-drones:devices-table:v1",
+    storageKey: TABLE_STORAGE_KEYS.DEVICES,
   })
-
 
   return (
     <div className="devices-tab">
@@ -144,7 +95,7 @@ function Devices() {
           status="loading"
           columns={columns}
         />
-        : error ?
+        : error && !data ?
         <TableData
           status="error"
           columns={columns}

@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import 'material-symbols/outlined.css';
 import App from './App.tsx'
+import { SystemStatusProvider } from './state/SystemStatusProvider.tsx'
 import '@fontsource/share-tech-mono';
 import '@fontsource/ibm-plex-mono';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <SystemStatusProvider>
+        <App />
+      </SystemStatusProvider>
     </BrowserRouter>
   </StrictMode>,
 )

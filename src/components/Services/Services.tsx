@@ -3,42 +3,34 @@ import TableFilter from "../TableFilter/TableFilter"
 import TableData from "../TableData/TableData"
 import { useTableState } from "../TableData/useTableState"
 import type { TableColumn } from "../TableData/TableTypes"
-import { useEffect, useState } from "react"
-
-interface ServiceJSON{
-  id: number,
-  device_id: number,
-  device_ip: string,
-  port: number,
-  protocol: string,
-  service_name: string,
-  product?: string,
-  version?: string,
-  state: "open"|"closed",
-  updated_at: string
-}
+import { useMemo } from "react"
+import { fetchServices } from "../../api/inventory"
+import type { ServiceDTO, ServiceState } from "../../api/types"
+import { useApiResource } from "../../hooks/useApiResource"
+import { useSystemStatus } from "../../state/useSystemStatus"
+import { TABLE_STORAGE_KEYS } from "../../constants"
 
 interface Service {
   id: number,
   deviceId: number,
-  deviceIp: string,
+  deviceIp: string | null,
   port: number,
   protocol: string,
-  serviceName: string,
+  serviceName: string | null,
   product: string | null,
   version: string | null,
-  state: "open"|"closed",
+  state: ServiceState,
   updatedAt: string
 }
 
-function toService(serviceJSON: ServiceJSON): Service{
+function toService(serviceJSON: ServiceDTO): Service{
   return {
     id: serviceJSON.id,
     deviceId: serviceJSON.device_id,
-    deviceIp: serviceJSON.device_ip,
+    deviceIp: serviceJSON.device_ip ?? null,
     port: serviceJSON.port,
     protocol: serviceJSON.protocol,
-    serviceName: serviceJSON.service_name,
+    serviceName: serviceJSON.service_name ?? null,
     product: serviceJSON.product ?? null,
     version: serviceJSON.version ?? null,
     state: serviceJSON.state,
@@ -46,20 +38,12 @@ function toService(serviceJSON: ServiceJSON): Service{
   }
 }
 
-// const devices: Device[] = devicesMock.data.map((device) => {
-//   if (device.status !== "up" && device.status !== "down") {
-//     throw new Error(`Unsupported device status: ${device.status}`)
-//   }
-
-//   return { ...device, status: device.status }
-// })
-
 const columns: TableColumn<Service>[] = [
   {
     key: "state",
     label: "Status",
     display: { kind: "status", activeValues: ["open"] },
-    filter: { kind: "status", options: ["open", "closed"] },
+    filter: { kind: "status", options: ["open", "filtered", "closed"] },
   },
   { key: "deviceIp", label: "Device", filter: { kind: "text" } },
   { key: "port", label: "Port", sortable: true, filter: { kind: "number" } },
@@ -76,54 +60,15 @@ const columns: TableColumn<Service>[] = [
   },
 ]
 
-async function getServices(signal?: AbortSignal): Promise<ServiceJSON[]>{
-  const response = await fetch("/api/services", {
-    method: "GET",
-    signal, 
-    headers: { Accept: "application/json" },
-    credentials: "same-origin",
-  })
-
-  if (!response.ok) {
-    throw new Error(`Could not load services (HTTP ${response.status})`)
-  }
-
-  const body: unknown = await response.json()
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("services" in body) ||
-    !Array.isArray(body.services)
-  ) {
-    throw new Error("The services API returned an invalid response")
-  }
-  
-  return body.services as ServiceJSON[]
-}
-
 function Services() {
-  const [services, setServices] = useState<ServiceJSON[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    getServices(controller.signal)
-      .then(setServices)
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return
-        setError(error instanceof Error ? error.message : "Could not load services")
-      })
-      .finally(() => setLoading(false))
-
-      return () => controller.abort()
-  }, [])
+  const { scanGeneration } = useSystemStatus()
+  const { data, loading, error } = useApiResource(fetchServices, scanGeneration)
+  const rows = useMemo(() => (data ?? []).map(toService), [data])
 
   const table = useTableState({
-    rows: services.map(toService),
+    rows,
     columns,
-    storageKey: "pigeons-are-drones:services-table:v1",
+    storageKey: TABLE_STORAGE_KEYS.SERVICES,
   })
 
   return (
@@ -138,7 +83,7 @@ function Services() {
       <TableData
         {...(loading
           ? { status: "loading" as const }
-          : error
+          : error && !data
             ? { status: "error" as const, message: error }
             : {
                 status: "ready" as const,

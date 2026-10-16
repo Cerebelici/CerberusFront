@@ -215,3 +215,14 @@
     background-color: transparent;
     overflow: hidden;
 }
+/* API error banner */
+.dashboard__errors {
+    margin: 1.6rem 1.6rem 0;
+    padding: 1.2rem 1.6rem;
+    border-left: 0.4rem solid var(--risk-critical);
+    border-radius: 0.2rem;
+    background-color: var(--bg-secondary);
+    color: var(--risk-critical--light);
+    font-size: 1.4rem;
+    line-height: 1.4;
+}

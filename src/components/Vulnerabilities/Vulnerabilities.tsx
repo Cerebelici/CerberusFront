@@ -3,48 +3,49 @@ import TableFilter from "../TableFilter/TableFilter"
 import TableData from "../TableData/TableData"
 import { useTableState } from "../TableData/useTableState"
 import type { TableColumn } from "../TableData/TableTypes"
-import { useEffect, useState } from "react"
-import VulnerabilityPanel from "../VulnerabilityPanel/VulnerabilityPanel"
+import { useMemo, useState } from "react"
+import VulnerabilityPanel, { type VulnerabilityDetails } from "../VulnerabilityPanel/VulnerabilityPanel"
+import { fetchVulnerabilities } from "../../api/inventory"
+import type { VulnerabilityDTO, VulnerabilityStatus } from "../../api/types"
+import { useApiResource } from "../../hooks/useApiResource"
+import { useSystemStatus } from "../../state/useSystemStatus"
+import { TABLE_STORAGE_KEYS } from "../../constants"
 
-interface VulnerabilityJSON{
-  id: number,
-  device_id: number,
-  device_ip: string,
-  cve_id: string,
-  severity: string,
-  cvss_score: number,
-  description: string,
-  reference_url: string,
-  detected_at: string
-}
-
-interface Vulnerability {
+interface Vulnerability extends VulnerabilityDetails {
   id: number
   device_id: number
-  device_ip: string
+  device_ip: string | null
   cve_id: string
   severity: string
   score: number
-  description: string
-  reference_url: string
+  status: VulnerabilityStatus
   detected_at: string
 }
 
-function toVulnerability(vulnerabilityJSON: VulnerabilityJSON): Vulnerability{
+function toVulnerability(vulnerabilityJSON: VulnerabilityDTO): Vulnerability{
   return {
     id: vulnerabilityJSON.id,
     device_id: vulnerabilityJSON.device_id,
-    device_ip: vulnerabilityJSON.device_ip,
+    device_ip: vulnerabilityJSON.device_ip ?? null,
+    port: vulnerabilityJSON.service_port,
     cve_id: vulnerabilityJSON.cve_id,
+    title: vulnerabilityJSON.title ?? null,
     severity: vulnerabilityJSON.severity,
     score: vulnerabilityJSON.cvss_score,
-    description: vulnerabilityJSON.description,
-    reference_url: vulnerabilityJSON.reference_url,
+    description: vulnerabilityJSON.description ?? null,
+    reference_url: vulnerabilityJSON.reference_url ?? null,
+    status: vulnerabilityJSON.status,
     detected_at: vulnerabilityJSON.detected_at,
   }
 }
 
 const columns: TableColumn<Vulnerability>[] = [
+  {
+    key: "status",
+    label: "Status",
+    display: { kind: "status", activeValues: ["open"] },
+    filter: { kind: "status", options: ["open", "resolved"] },
+  },
   { key: "device_ip", label: "Device", filter: { kind: "text" } },
   { key: "cve_id", label: "CVE ID", sortable: true, filter: { kind: "text" } },
   {
@@ -56,62 +57,25 @@ const columns: TableColumn<Vulnerability>[] = [
   },
   {
     key: "detected_at",
-    label: "Dected at",
+    label: "Detected at",
     sortable: true,
     display: { kind: "date" },
     filter: { kind: "date" },
   },
 ]
 
-async function getVulnerabilities(signal?: AbortSignal): Promise<VulnerabilityJSON[]>{
-  const response = await fetch("/api/vulnerabilities", {
-    method: "GET",
-    signal, 
-    headers: { Accept: "application/json" },
-    credentials: "same-origin",
-  })
-
-  if (!response.ok) {
-    throw new Error(`Could not load vulnerabilities (HTTP ${response.status})`)
-  }
-
-  const body: unknown = await response.json()
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("vulnerabilities" in body) ||
-    !Array.isArray(body.vulnerabilities)
-  ) {
-    throw new Error("The vulnerabilities API returned an invalid response")
-  }
-  
-  return body.vulnerabilities as VulnerabilityJSON[]
-}
-
 function Vulnerabilities() {
-  const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityJSON[]>([])
-  const [selectedVulnerability, setSelectedVulnerability] = useState<Vulnerability | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    getVulnerabilities(controller.signal)
-      .then(setVulnerabilities)
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return
-        setError(error instanceof Error ? error.message : "Could not load vulnerabilities")
-      })
-      .finally(() => setLoading(false))
-
-      return () => controller.abort()
-  }, [])
+  const { scanGeneration } = useSystemStatus()
+  const { data, loading, error } = useApiResource(fetchVulnerabilities, scanGeneration)
+  const rows = useMemo(() => (data ?? []).map(toVulnerability), [data])
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Derive the selection from fresh data so the panel never shows a stale row after a refresh.
+  const selectedVulnerability = rows.find((row) => row.id === selectedId) ?? null
 
   const table = useTableState({
-    rows: vulnerabilities.map(toVulnerability),
+    rows,
     columns,
-    storageKey: "pigeons-are-drones:vulnerabilities-table:v1",
+    storageKey: TABLE_STORAGE_KEYS.VULNERABILITIES,
   })
 
   return (
@@ -127,7 +91,7 @@ function Vulnerabilities() {
         <TableData
           {...(loading
             ? { status: "loading" as const }
-            : error
+            : error && !data
               ? { status: "error" as const, message: error }
               : {
                   status: "ready" as const,
@@ -135,16 +99,14 @@ function Vulnerabilities() {
                   getRowKey: (vuln: Vulnerability) => vuln.id,
                   sort: table.sort,
                   onSortChange: table.changeSort,
-                  onRowClick: setSelectedVulnerability,
+                  onRowClick: (vuln: Vulnerability) => setSelectedId(vuln.id),
                   selectedRowKey: selectedVulnerability?.id,
                 })}
           columns={columns}
         />
       </div>
       <div className="vulnerabilities-tab__column">
-        <VulnerabilityPanel
-          vulnerability={selectedVulnerability}
-        />
+        <VulnerabilityPanel vulnerability={selectedVulnerability} />
       </div>
     </div>
   )
