@@ -18,13 +18,14 @@ interface VulnerabilityJSON{
   detected_at: string
 }
 
-// TODO: it would be great if device name/hostname would be also included
 interface Vulnerability {
   id: number
   device_id: number
   device_ip: string
   cve_id: string
+  severity: string
   score: number
+  description: string
   reference_url: string
   detected_at: string
 }
@@ -35,7 +36,9 @@ function toVulnerability(vulnerabilityJSON: VulnerabilityJSON): Vulnerability{
     device_id: vulnerabilityJSON.device_id,
     device_ip: vulnerabilityJSON.device_ip,
     cve_id: vulnerabilityJSON.cve_id,
+    severity: vulnerabilityJSON.severity,
     score: vulnerabilityJSON.cvss_score,
+    description: vulnerabilityJSON.description,
     reference_url: vulnerabilityJSON.reference_url,
     detected_at: vulnerabilityJSON.detected_at,
   }
@@ -140,8 +143,7 @@ function Vulnerabilities() {
       </div>
       <div className="vulnerabilities-tab__column">
         <VulnerabilityPanel
-          cveId={selectedVulnerability?.cve_id ?? null}
-          score={selectedVulnerability?.score ?? null}
+          vulnerability={selectedVulnerability}
         />
       </div>
     </div>

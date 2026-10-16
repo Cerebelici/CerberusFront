@@ -17,11 +17,13 @@ function formatUptime(ms: number): string {
   return `${pad(days, 3)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-export function useUptime(startTimeIsoOrTimestamp: string | number) {
+export function useUptime(startTimeIsoOrTimestamp?: string | number | null) {
   const [formattedUptime, setFormattedUptime] = useState<string>('000:00:00:00');
 
   useEffect(() => {
+    if (!startTimeIsoOrTimestamp) return;
     const startTime = new Date(startTimeIsoOrTimestamp).getTime();
+    if (Number.isNaN(startTime)) return;
 
     const updateTimer = () => {
       const now = Date.now();
@@ -39,8 +41,10 @@ export function useUptime(startTimeIsoOrTimestamp: string | number) {
   return formattedUptime;
 }
 
-export function formatDate(isoString: string): string {
+export function formatDate(isoString?: string | null): string {
+  if (!isoString) return '—';
   const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '—';
   
   const pad = (num: number) => String(num).padStart(2, '0');
 

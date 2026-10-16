@@ -17,6 +17,8 @@ interface DeviceJSON{
   last_seen: string
   services_count?: number
   vulnerabilities_count?: number
+  risk?: number
+  score?: number
 }
 
 interface Device {
@@ -37,23 +39,15 @@ function toDevice(deviceJSON: DeviceJSON): Device{
     id: deviceJSON.id,
     hostname: deviceJSON.hostname ?? null, 
     vendor: deviceJSON.vendor ?? null,
-    ip: deviceJSON.current_ip,
+    ip: deviceJSON.current_ip || deviceJSON.ip || "",
     mac: deviceJSON.mac ?? null,
     status: deviceJSON.status,
-    riskScore: Math.random() * 10.0, //Placeholder !!! TODO
-    vulnerabilitiesCount: deviceJSON.vulnerabilities_count ?? null,
-    servicesCount: deviceJSON.services_count ?? null,
+    riskScore: typeof deviceJSON.risk === "number" ? deviceJSON.risk : 0.0,
+    vulnerabilitiesCount: deviceJSON.vulnerabilities_count ?? 0,
+    servicesCount: deviceJSON.services_count ?? 0,
     lastSeen: deviceJSON.last_seen,
   }
 }
-
-// const devices: Device[] = devicesMock.data.map((device) => {
-//   if (device.status !== "up" && device.status !== "down") {
-//     throw new Error(`Unsupported device status: ${device.status}`)
-//   }
-
-//   return { ...device, status: device.status }
-// })
 
 const columns: TableColumn<Device>[] = [
   {
