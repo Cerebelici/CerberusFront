@@ -56,7 +56,6 @@ function ScanHistoryTable({ scans, loading, error }: ScanHistoryTableProps) {
 
   return (
     <section className="scan-history" aria-label="Scan history">
-      <h2 className="scan-history__title">Scan history</h2>
       <TableFilter
         columns={columns}
         filters={table.filters}

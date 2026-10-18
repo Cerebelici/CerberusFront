@@ -1,6 +1,6 @@
 import './Scan.css'
-import { useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApiResource } from '../../hooks/useApiResource'
 import { useSystemStatus } from '../../state/useSystemStatus'
 import ScanHistoryTable from './ScanHistoryTable'
@@ -9,9 +9,25 @@ import { loadScanHistory } from './scanApi'
 import { SCAN_TYPE_DEFINITIONS, parseScanType, type ScanLogDTO, type ScanType } from './scanTypes'
 import { useTriggerScan } from './useTriggerScan'
 
+function scanTypeFromNavigationState(state: unknown): ScanType | null {
+  if (
+    typeof state !== 'object' ||
+    state === null ||
+    !('triggerScanType' in state) ||
+    typeof state.triggerScanType !== 'string'
+  ) {
+    return null
+  }
+
+  return parseScanType(state.triggerScanType)
+}
+
 function ScanPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const focusedType = parseScanType(searchParams.get('type'))
+  const handledNavigationKey = useRef<string | null>(null)
 
   const { status, error: statusError, scanGeneration, refresh } = useSystemStatus()
   const anyRunning = status !== null && (status.is_discovery_running || status.is_vuln_running)
@@ -24,10 +40,24 @@ function ScanPage() {
     reloadHistory()
   }, [refresh, reloadHistory])
 
-  const controllers = {
-    discovery: useTriggerScan('discovery', handleUpdate),
-    vulnerability: useTriggerScan('vulnerability', handleUpdate),
-  }
+  const discoveryController = useTriggerScan('discovery', handleUpdate)
+  const vulnerabilityController = useTriggerScan('vulnerability', handleUpdate)
+  const { trigger: triggerDiscovery } = discoveryController
+  const { trigger: triggerVulnerability } = vulnerabilityController
+  const controllers = { discovery: discoveryController, vulnerability: vulnerabilityController }
+
+  useEffect(() => {
+    const scanType = scanTypeFromNavigationState(location.state)
+    if (!scanType || handledNavigationKey.current === location.key) return
+
+    handledNavigationKey.current = location.key
+    if (scanType === 'discovery') {
+      triggerDiscovery()
+    } else {
+      triggerVulnerability()
+    }
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [location, navigate, triggerDiscovery, triggerVulnerability])
 
   const lastScanByType = useMemo(() => {
     const result: Record<ScanType, ScanLogDTO | null> = { discovery: null, vulnerability: null }
@@ -44,7 +74,7 @@ function ScanPage() {
 
   return (
     <div className="scan-page">
-      <header className="scan-page__header">
+      {/* <header className="scan-page__header">
         <h1 className="scan-page__title">SCANS</h1>
         {capabilities && (
           <p className="scan-page__caps">
@@ -52,7 +82,7 @@ function ScanPage() {
             vulners script {capabilities.vuln_script_ok ? 'available' : 'unavailable'}
           </p>
         )}
-      </header>
+      </header> */}
 
       {statusError && <p className="scan-page__alert" role="alert">{statusError}</p>}
       {capabilities?.warnings && capabilities.warnings.length > 0 && (

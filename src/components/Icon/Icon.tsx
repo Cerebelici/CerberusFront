@@ -3,6 +3,7 @@ import React from 'react';
 // TODO: make sure to import only these icons and not all icons
 export type IconName = 
     | 'arrow_back_ios_new'
+    | 'arrow_forward_ios'
     | 'home'
     | 'computer' 
     | 'linked_services' 
@@ -17,6 +18,7 @@ export type IconName =
     | 'bug_report'
     | 'progress_activity'
     | 'refresh'
+    | 'report'
 
 interface IconProps extends React.HTMLAttributes<HTMLSpanElement> {
   name: IconName;

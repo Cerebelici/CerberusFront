@@ -10,6 +10,7 @@ import type { VulnerabilityDTO, VulnerabilityStatus } from "../../api/types"
 import { useApiResource } from "../../hooks/useApiResource"
 import { useSystemStatus } from "../../state/useSystemStatus"
 import { TABLE_STORAGE_KEYS } from "../../constants"
+import { Icon } from "../Icon/Icon"
 
 interface Vulnerability extends VulnerabilityDetails {
   id: number
@@ -21,6 +22,8 @@ interface Vulnerability extends VulnerabilityDetails {
   status: VulnerabilityStatus
   detected_at: string
 }
+
+const VULNERABILITIES_PAGE_SIZE = 10
 
 function toVulnerability(vulnerabilityJSON: VulnerabilityDTO): Vulnerability{
   return {
@@ -69,6 +72,10 @@ function Vulnerabilities() {
   const { data, loading, error } = useApiResource(fetchVulnerabilities, scanGeneration)
   const rows = useMemo(() => (data ?? []).map(toVulnerability), [data])
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [paginationState, setPaginationState] = useState<{
+    rows: readonly Vulnerability[]
+    pageIndex: number
+  } | null>(null)
   // Derive the selection from fresh data so the panel never shows a stale row after a refresh.
   const selectedVulnerability = rows.find((row) => row.id === selectedId) ?? null
 
@@ -78,35 +85,71 @@ function Vulnerabilities() {
     storageKey: TABLE_STORAGE_KEYS.VULNERABILITIES,
   })
 
+  const pageCount = Math.max(1, Math.ceil(table.rows.length / VULNERABILITIES_PAGE_SIZE))
+  const pageIndex = paginationState?.rows === table.rows ? paginationState.pageIndex : 0
+  const currentPageIndex = Math.min(pageIndex, pageCount - 1)
+
   return (
     <div className="vulnerabilities-tab">
-      <div className="vulnerabilities-tab__column vulnerabilities-tab__column--table">
-        <TableFilter
+      <TableFilter
           columns={columns}
           filters={table.filters}
           onAddFilter={table.addFilter}
           onRemoveFilter={table.removeFilter}
           onClearFilters={table.clearFilters}
-        />
-        <TableData
-          {...(loading
-            ? { status: "loading" as const }
-            : error && !data
-              ? { status: "error" as const, message: error }
-              : {
-                  status: "ready" as const,
-                  rows: table.rows,
-                  getRowKey: (vuln: Vulnerability) => vuln.id,
-                  sort: table.sort,
-                  onSortChange: table.changeSort,
-                  onRowClick: (vuln: Vulnerability) => setSelectedId(vuln.id),
-                  selectedRowKey: selectedVulnerability?.id,
-                })}
-          columns={columns}
-        />
-      </div>
-      <div className="vulnerabilities-tab__column">
-        <VulnerabilityPanel vulnerability={selectedVulnerability} />
+      />
+      <div className="vulnerabilities-tab__box">
+        <div className="vulnerabilities-tab__column vulnerabilities-tab__column--table">
+          <div className="table-vulnerability-container">
+            <TableData<Vulnerability>
+              {...(loading
+                ? { status: "loading" as const }
+                : error && !data
+                  ? { status: "error" as const, message: error }
+                  : {
+                      status: "ready" as const,
+                      rows: table.rows,
+                      getRowKey: (vuln: Vulnerability) => vuln.id,
+                      sort: table.sort,
+                      onSortChange: (sort) => {
+                        setPaginationState({ rows: table.rows, pageIndex: 0 })
+                        table.changeSort(sort)
+                      },
+                      onRowClick: (vuln: Vulnerability) => setSelectedId(vuln.id),
+                      selectedRowKey: selectedVulnerability?.id,
+                      pagination: {
+                        pageIndex: currentPageIndex,
+                        pageSize: VULNERABILITIES_PAGE_SIZE,
+                      },
+                    })}
+              columns={columns}
+            />
+          </div>
+          <div className="table-nav">
+            <button
+              className={`btn table-nav__btn table-nav__btn--prev${currentPageIndex === 0 ? " table-nav__btn--disabled" : ""}`}
+              type="button"
+              aria-label="Previous page"
+              disabled={currentPageIndex === 0}
+              onClick={() => setPaginationState({ rows: table.rows, pageIndex: currentPageIndex - 1 })}
+            >
+              <Icon name="arrow_back_ios_new" className="table-nav__icon" />
+            </button>
+            <span className="table-nav__page">{currentPageIndex + 1}/{pageCount}</span>
+            <button
+              className={`btn table-nav__btn table-nav__btn--next${currentPageIndex === pageCount - 1 ? " table-nav__btn--disabled" : ""}`}
+              type="button"
+              aria-label="Next page"
+              disabled={currentPageIndex === pageCount - 1}
+              onClick={() => setPaginationState({ rows: table.rows, pageIndex: currentPageIndex + 1 })}
+            >
+              <Icon name="arrow_forward_ios" className="table-nav__icon" />
+            </button>
+          </div>
+        </div>
+        <div className="vulnerabilities-tab__column vulnerabilities-tab__column--panel">
+          <VulnerabilityPanel vulnerability={selectedVulnerability} />
+        </div>
       </div>
     </div>
   )

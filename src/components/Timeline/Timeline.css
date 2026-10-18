@@ -28,11 +28,47 @@
   color: var(--color-text-main);
   /* border: 0.1rem solid var(--color-border); */
   border-radius: 0.4rem;
-  font-family: monospace, sans-serif;
   font-size: var(--font-size-base);
   width: 100%;
   box-sizing: border-box;
   user-select: none;
+}
+
+.timeline-skeleton__control {
+  width: 4.8rem;
+  height: 3.2rem;
+  border-radius: 0.2rem;
+}
+
+.timeline-skeleton__message {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.timeline-skeleton__sidebar-row {
+  justify-content: flex-start;
+}
+
+.timeline-skeleton__label {
+  width: 72%;
+  height: 1.2rem;
+}
+
+.timeline-skeleton__graph-row {
+  display: block;
+}
+
+.timeline-skeleton__bar {
+  position: absolute;
+  top: 0.8rem;
+  height: 1.6rem;
+  border-radius: var(--border-radius-none);
+}
+
+.timeline-skeleton__minimap {
+  width: 100%;
+  height: 2.4rem;
+  border-radius: 0.2rem;
 }
 
 /* Controls Header */
@@ -47,7 +83,7 @@
 
 .control-group {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.8rem;
   align-items: center;
 }
 
@@ -58,27 +94,27 @@
 }
 
 .control-btn {
-  background: var(--color-bg);
-  color: var(--color-text-main);
+  font-family: inherit;
   border: none;
-  padding: 0.4rem 0.8rem;
+  padding: 0.8rem 1.2rem;
   font-size: var(--font-size-sm);
+  border-radius: 0.2rem;
+  transition: color 150ms, background-color 150ms;
   cursor: pointer;
 }
 
-.control-btn:hover {
+/* .control-btn:hover {
   background: var(--color-surface-hover);
-}
+} */
 
 .control-btn.active {
-  background: var(--color-status-secure);
-  border-color: var(--color-status-secure);
-  color: #ffffff;
+  color: var(--light-main);
+  background-color: var(--accent);
 }
 
 .control-info {
   display: flex;
-  gap: 1.5rem;
+  gap: 1.4rem;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
@@ -95,10 +131,11 @@
 .net-sidebar {
   display: flex;
   flex-direction: column;
-  min-width: 18rem;
-  max-width: 18rem;
+  /* min-width: 18rem;
+  max-width: 18rem; */
+  width: 26rem;
   background-color: var(--color-surface);
-  border-right: 0.1rem solid var(--color-border);
+  /* border-right: 0.1rem solid var(--color-border); */
   z-index: 10;
   position: sticky;
   left: 0;
@@ -107,30 +144,43 @@
 
 .sidebar-header-cell {
   height: 3rem;
-  padding: 0 1rem;
+  padding: 0 1.6rem;
   display: flex;
   align-items: center;
   font-weight: bold;
-  color: var(--color-text-muted);
-  border-bottom: 0.1rem solid var(--color-border);
+  color: var(--color-text-main);
+  /* border-bottom: 0.1rem solid var(--color-border); */
   font-size: var(--font-size-sm);
 }
 
 .sidebar-row {
   height: 3.2rem;
-  padding: 0 1rem;
+  padding: 0 1.6rem;
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  border-bottom: 0.1rem solid var(--color-border);
+  /* border-bottom: 0.1rem solid var(--color-border); */
   background-color: var(--color-surface);
+  z-index: 10;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.sidebar-row:last-child{
+  border-bottom: 0.1rem solid var(--color-border);
+}
+
+.sidebar-row:nth-child(even){
+  background-color: var(--bg-tertiary);
+}
+
 .sidebar-row:hover {
-  background-color: var(--color-surface-hover);
+  background-color: var(--light-secondary);
+  color: var(--bg-main);
+  .device-ip-sub{
+    color: var(--bg-secondary);
+  }
 }
 
 .vuln-badge {
@@ -156,15 +206,15 @@
 .net-graph-scroll-area {
   flex-grow: 1;
   position: relative;
-  background-color: var(--color-bg);
-  overflow-x: hidden;
+  /* background-color: var(--color-bg); */
+  overflow-x: hidden; 
 }
 
 .scan-track-header {
   height: 3rem;
   position: relative;
-  border-bottom: 0.1rem solid var(--color-border);
-  background-color: rgba(26, 26, 26, 0.5);
+  /* border-bottom: 0.1rem solid var(--color-border); */
+  /* background-color: rgba(26, 26, 26, 0.5); */
 }
 
 .scan-tick-line {
@@ -190,9 +240,17 @@
 .graph-row {
   height: 3.2rem;
   position: relative;
-  border-bottom: 0.1rem solid var(--color-border);
+  /* border-bottom: 0.1rem solid var(--color-border); !!! */
   display: flex;
   align-items: center;
+}
+
+.graph-row:nth-child(even){
+  background-color: var(--bg-secondary);
+}
+
+.graph-row:nth-last-child(2){
+  border-bottom: 0.1rem solid var(--color-border);
 }
 
 .grid-vertical-line {
@@ -246,32 +304,47 @@
 
 /* Time Labels Track at Bottom of Graph */
 .time-labels-track {
-  height: 2.5rem;
+  height: 3.2rem;
   position: relative;
-  border-top: 0.1rem solid var(--color-border);
+  /* border-top: 0.1rem solid var(--color-border); */
   background-color: var(--color-surface);
 }
 
 .time-label-tick {
   position: absolute;
-  top: 0.6rem;
+  top: 0.4rem;
   transform: translateX(-50%);
-  font-size: 0.9rem;
+  font-size: 1rem;
+  line-height: 1.2;
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+.time-label-tick-date,
+.time-label-tick-time {
+  display: block;
+}
+
+.time-label-tick:first-child {
+  transform: translateX(0);
+}
+
+.time-label-tick:last-child {
+  transform: translateX(-105%);
 }
 
 /* Minimap with Bounds Handles */
 .net-minimap-container {
   background-color: var(--color-surface);
-  padding: 1rem;
+  padding: 1.6rem;
   border-top: 0.1rem solid var(--color-border);
 }
 
 .minimap-track {
   height: 2.4rem;
   background-color: var(--color-bg);
-  border: 0.1rem solid var(--color-border);
+  /* border: 0.1rem solid var(--color-border); */
+  border-radius: 0.2rem;
   position: relative;
 }
 
@@ -279,8 +352,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background-color: rgba(49, 130, 206, 0.2);
-  border: 0.1rem solid var(--color-scan-discovery);
+  background-color: var(--accent);
+  border-radius: 0.2rem;
+  /* !!! */
   cursor: grab;
 }
 
@@ -292,10 +366,16 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 0.8rem;
-  background-color: var(--color-scan-discovery);
+  width: 1rem;
+  background-color: var(--accent-light);
   cursor: ew-resize;
   z-index: 2;
+  border-radius: 0.2rem;
+  box-shadow: 0 0.2rem 0.2rem 0.2rem rgba(0, 0, 0, 0.2);
+}
+
+.minimap-handle:hover{
+  background: var(--light-main);
 }
 
 .minimap-handle.left {
@@ -316,12 +396,21 @@
   margin-top: 0.5rem;
 }
 
+.minimap-labels__time{
+  color: var(--light-main);
+}
+
 /* Floating Tooltip */
 .net-floating-tooltip {
   position: fixed;
-  background-color: var(--color-surface);
-  border: 0.1rem solid var(--color-border);
-  padding: 0.8rem;
+  background-color: var(--bg-tertiary);
+  /* border: 0.1rem solid var(--color-border); */
+  padding: 1.6rem;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 2.4rem));
+  max-height: calc(100vh - 2.4rem);
+  overflow-y: auto;
   z-index: 1000;
   pointer-events: none;
   box-shadow: 0 0.4rem 0.6rem rgba(0, 0, 0, 0.5);
@@ -337,4 +426,5 @@
 .tooltip-line {
   color: var(--color-text-muted);
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }

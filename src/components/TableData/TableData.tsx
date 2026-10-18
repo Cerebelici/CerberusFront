@@ -19,6 +19,7 @@ type TableDataProps<T extends object> = {
         onSortChange: (sort: TableSort<T>) => void
         onRowClick?: (row: T) => void
         selectedRowKey?: string | number
+        pagination?: { pageIndex: number; pageSize: number }
     }
 )
 
@@ -81,6 +82,7 @@ function TableData<T extends object>(props: TableDataProps<T>) {
                     sort={props.sort}
                     onRowClick={props.onRowClick}
                     selectedRowKey={props.selectedRowKey}
+                    pagination={props.pagination}
                 />
             )}
         </div>

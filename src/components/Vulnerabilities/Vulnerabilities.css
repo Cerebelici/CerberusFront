@@ -1,16 +1,62 @@
 .vulnerabilities-tab{
     display: flex;
+    flex-direction: column;
     gap: 3.2rem;
     padding: 3.2rem;
+}
+
+.vulnerabilities-tab__box{
+    display: flex;
+    gap: 3.2rem;
 }
 
 .vulnerabilities-tab__column{
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
 }
 
 .vulnerabilities-tab__column--table{
-    /* flex-grow: 4; */
-    gap: 3.2rem;
+    gap: 1.6rem;
+    flex-grow: 1;
+}
+
+.table-vulnerability-container{
+    min-height: 44rem;
+}
+
+.table-nav{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.table-nav__page{
+    font-size: 1.4rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 0.2rem;
+    padding: 0.4rem 0.8rem;
+}
+
+.table-nav__btn{
+    color: var(--light-main);
+    transition: color 150ms;
+    background: transparent;
+}
+
+.table-nav__btn:hover{
+    color: var(--accent-light);
+}
+
+.table-nav__btn:disabled{
+    cursor: not-allowed;
+}
+
+.table-nav__btn--disabled,
+.table-nav__btn--disabled:hover{
+    color: var(--bg-tertiary);
+}
+
+.table-nav__icon{
+    vertical-align: middle;
 }

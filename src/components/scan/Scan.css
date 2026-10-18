@@ -47,7 +47,7 @@
 .scan-page__cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(32rem, 1fr));
-  gap: 3.2rem;
+  gap: 1.6rem;
 }
 
 /* Card */
@@ -124,6 +124,7 @@
   gap: 0.8rem;
   font-size: 1.6rem;
   padding: 0.8rem 1.6rem;
+  margin-top: auto;
 }
 
 .btn.scan-trigger:disabled {

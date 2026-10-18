@@ -53,14 +53,6 @@ function ScanTypeCard({ definition, controller, serverRunning, nextRun, lastScan
         <dd>{lastScan ? summarizeScan(lastScan) : 'No runs recorded yet'}</dd>
       </dl>
 
-      <TriggerScanButton
-        label={definition.triggerLabel}
-        icon={definition.icon}
-        phase={state.phase}
-        serverRunning={serverRunning === true}
-        onTrigger={trigger}
-      />
-
       {state.message && (
         <p
           className={`scan-card__feedback scan-card__feedback--${FEEDBACK_TONE[state.phase] ?? 'info'}`}
@@ -69,6 +61,16 @@ function ScanTypeCard({ definition, controller, serverRunning, nextRun, lastScan
           {state.message}
         </p>
       )}
+
+      <TriggerScanButton
+        label={definition.triggerLabel}
+        icon={definition.icon}
+        phase={state.phase}
+        serverRunning={serverRunning === true}
+        onTrigger={trigger}
+      />
+
+
     </section>
   )
 }

@@ -7,11 +7,12 @@ type ChartScale = {
 }
 
 function calculateChartScale(
-  values: number[],
+  values: (number | null)[],
   tickCount: number = 5,
   step: number = 50
 ): ChartScale {
-  const peakValue = values.length > 0 ? Math.max(...values) : 0;
+  const knownValues = values.filter((value): value is number => value !== null);
+  const peakValue = knownValues.length > 0 ? Math.max(...knownValues) : 0;
 
   let maxValue = Math.ceil(peakValue / step) * step;
 
@@ -31,7 +32,7 @@ function calculateChartScale(
 
 export interface BarDataItem {
   label: string;
-  value: number;
+  value: number | null;
 }
 
 interface BarChartProps {
@@ -75,7 +76,9 @@ function BarChart({title, data, tickCount = 5, step = 50}: BarChartProps) {
           </div>
           {data.map((item) => {
             // Calculate percentage height based on max tick value
-            const heightPercent = Math.min(100, Math.max(0, (item.value / maxValue) * 100));
+            const heightPercent = item.value === null
+              ? 0
+              : Math.min(100, Math.max(0, (item.value / maxValue) * 100));
             return (
               <div
                 key={item.label}
@@ -83,7 +86,7 @@ function BarChart({title, data, tickCount = 5, step = 50}: BarChartProps) {
                 style={{ '--bar-height': `${heightPercent}%` } as React.CSSProperties}
               >
                 <div className="barchart__bar">
-                  <span className="barchart__value">{item.value}</span>
+                  <span className="barchart__value">{item.value ?? '—'}</span>
                 </div>
                 <span className="barchart__x-label">{item.label}</span>
               </div>

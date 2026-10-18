@@ -14,6 +14,7 @@ interface TableRowsProps<T>
   sort: TableSort<T> | null
   onRowClick?: (row: T) => void
   selectedRowKey?: string | number
+  pagination?: { pageIndex: number; pageSize: number }
 }
 
 function compareValues<T extends object>(left: T, right: T, column: TableColumn<T>): number {
@@ -50,6 +51,7 @@ function TableRows<T extends object>({
     sort,
     onRowClick,
     selectedRowKey,
+    pagination,
 }: TableRowsProps<T>) {
     const sortedRows = useMemo(() => {
         if (!sort) return rows
@@ -63,9 +65,16 @@ function TableRows<T extends object>({
         })
     }, [rows, columns, sort])
 
+    const visibleRows = pagination
+        ? sortedRows.slice(
+            pagination.pageIndex * pagination.pageSize,
+            (pagination.pageIndex + 1) * pagination.pageSize,
+        )
+        : sortedRows
+
     return (
         <>
-            {sortedRows.map((row) => {
+            {visibleRows.map((row) => {
                 const rowKey = getRowKey(row)
                 const isSelected = rowKey === selectedRowKey
 

@@ -11,4 +11,5 @@
 .app-content {
     grid-column: 2;
     min-width: 0;
+    min-height: 100dvh;
 }

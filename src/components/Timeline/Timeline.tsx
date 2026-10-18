@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
+import '../TableData/TableData.css';
 import './Timeline.css';
 
 export interface ScanTick {
@@ -49,6 +50,52 @@ interface NetworkTimelineProps {
 
 type ZoomPreset = '1h' | '4h' | '8h' | '24h' | 'all';
 
+export const NetworkTimelineSkeleton: React.FC = () => (
+  <div className="net-timeline-container timeline-skeleton" role="status" aria-label="Loading timeline">
+    <div className="net-timeline-controls" aria-hidden="true">
+      <div className="control-group">
+        <span className="control-label">Scope:</span>
+        {[0, 1, 2, 3, 4].map((item) => (
+          <div className="table__loading__row timeline-skeleton__control" key={item} />
+        ))}
+      </div>
+      <span className="timeline-skeleton__message">Loading timeline...</span>
+    </div>
+    <div className="net-workspace" aria-hidden="true">
+      <div className="net-sidebar">
+        <div className="sidebar-header-cell">Device Endpoints</div>
+        {[0, 1, 2, 3].map((item) => (
+          <div className="sidebar-row timeline-skeleton__sidebar-row" key={item}>
+            <div className="table__loading__row timeline-skeleton__label" />
+          </div>
+        ))}
+      </div>
+      <div className="net-graph-scroll-area">
+        <div className="scan-track-header" />
+        {[
+          { left: '8%', width: '58%' },
+          { left: '21%', width: '37%' },
+          { left: '4%', width: '71%' },
+          { left: '35%', width: '49%' },
+        ].map((bar, item) => (
+          <div className="graph-row timeline-skeleton__graph-row" key={item}>
+            <div
+              className="table__loading__row timeline-skeleton__bar"
+              style={{ left: bar.left, width: bar.width }}
+            />
+          </div>
+        ))}
+        <div className="time-labels-track" />
+      </div>
+    </div>
+    <div className="net-minimap-container" aria-hidden="true">
+      <div className="minimap-track">
+        <div className="table__loading__row timeline-skeleton__minimap" />
+      </div>
+    </div>
+  </div>
+);
+
 export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
   const globalStart = new Date(data.time_window.from).getTime();
   const globalEnd = new Date(data.time_window.to).getTime();
@@ -66,6 +113,7 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
   const [dragStartViewEnd, setDragStartViewEnd] = useState<number>(globalEnd);
 
   const minimapRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   // Hover tooltip state
   const [activeTooltip, setActiveTooltip] = useState<{
@@ -75,6 +123,31 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
     x: number;
     y: number;
   } | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!activeTooltip) return;
+
+    const updateTooltipPosition = () => {
+      const tooltip = tooltipRef.current;
+      if (!tooltip) return;
+
+      const { width, height } = tooltip.getBoundingClientRect();
+      const margin = 12;
+      const gap = 12;
+      const x = activeTooltip.x + width <= window.innerWidth - margin
+        ? activeTooltip.x
+        : Math.max(margin, activeTooltip.x - width - gap);
+      setTooltipPosition({
+        x: Math.min(x, window.innerWidth - width - margin),
+        y: Math.max(margin, Math.min(activeTooltip.y, window.innerHeight - height - margin)),
+      });
+    };
+
+    updateTooltipPosition();
+    window.addEventListener('resize', updateTooltipPosition);
+    return () => window.removeEventListener('resize', updateTooltipPosition);
+  }, [activeTooltip]);
 
   const formatDateTime = (timestamp: string | number) => {
     const d = new Date(timestamp);
@@ -117,10 +190,17 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
     const lines = [];
     for (let i = 0; i <= count; i++) {
       const time = viewStart + i * step;
+      const date = new Date(time);
       lines.push({
         time,
         percent: (i / count) * 100,
-        label: formatDateTime(time),
+        dateLabel: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        timeLabel: date.toLocaleTimeString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }),
       });
     }
     return lines;
@@ -217,7 +297,7 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
           {(['1h', '4h', '8h', '24h', 'all'] as ZoomPreset[]).map((preset) => (
             <button
               key={preset}
-              className={`control-btn ${zoomPreset === preset ? 'active' : ''}`}
+              className={`btn--dark control-btn ${zoomPreset === preset ? 'active' : ''}`}
               onClick={() => handlePresetChange(preset)}
             >
               {preset.toUpperCase()}
@@ -234,7 +314,7 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
       <div className="net-workspace">
         {/* Left Sticky Header Column */}
         <div className="net-sidebar">
-          <div className="sidebar-header-cell">Device Endpoint</div>
+          <div className="sidebar-header-cell">Device Endpoints</div>
           {data.devices.map((device) => {
             const primaryLabel = getDeviceLabel(device);
             const maxVulns = Math.max(...device.periods.map((p) => p.vulns_count || 0));
@@ -357,7 +437,8 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
                 className="time-label-tick"
                 style={{ left: `${grid.percent}%` }}
               >
-                {grid.label}
+                <span className="time-label-tick-date">{grid.dateLabel}</span>
+                <span className="time-label-tick-time">{grid.timeLabel}</span>
               </span>
             ))}
           </div>
@@ -380,17 +461,21 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
           </div>
         </div>
         <div className="minimap-labels">
-          <span>{formatDateTime(globalStart)}</span>
+          <span className='minimap-labels__time'>{formatDateTime(globalStart)}</span>
           <span>Drag bounds or window to adjust view</span>
-          <span>{formatDateTime(globalEnd)}</span>
+          <span className='minimap-labels__time'>{formatDateTime(globalEnd)}</span>
         </div>
       </div>
 
       {/* Floating Tooltip */}
       {activeTooltip && (
         <div
+          ref={tooltipRef}
           className="net-floating-tooltip"
-          style={{ top: activeTooltip.y + 'px', left: activeTooltip.x + 'px' }}
+          style={{
+            top: `${tooltipPosition?.y ?? activeTooltip.y}px`,
+            left: `${tooltipPosition?.x ?? activeTooltip.x}px`,
+          }}
         >
           <div className="tooltip-title">{activeTooltip.title}</div>
           {activeTooltip.details.map((line, i) => (

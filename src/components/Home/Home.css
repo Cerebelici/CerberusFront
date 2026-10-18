@@ -226,3 +226,36 @@
     font-size: 1.4rem;
     line-height: 1.4;
 }
+
+/* Timeline error */
+.widget--timeline__error{
+    width: 100%;
+    height: 20rem;
+    background-color: var(--bg-quaternary);
+    color: var(--light-secondary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.6rem;
+
+    
+}
+
+.widget--timeline__error__icon{
+    font-size: 8rem;
+    font-variation-settings:
+        'FILL' 0,
+        'wght' 200,
+        'GRAD' -25,
+        'opsz' 48;
+    width: 8rem;
+    height: 8rem;
+    flex-shrink: 0;
+}
+
+.widget--timeline__error__text{
+    font-family: var(--font-heading);
+    color: var(--light-main);
+    text-shadow: 0.2rem 0.2rem 0.4rem color-mix(in srgb, var(--light-main) 5%, transparent);
+    font-size: 3.6rem;
+}

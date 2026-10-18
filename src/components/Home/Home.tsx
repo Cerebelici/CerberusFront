@@ -1,7 +1,7 @@
 import './Home.css';
 import DonutChart from '../DonutChart/DonutChart';
 import BarChart from '../BarChart/BarChart';
-import { NetworkTimeline, type NetworkData } from '../Timeline/Timeline';
+import { NetworkTimeline, NetworkTimelineSkeleton, type NetworkData } from '../Timeline/Timeline';
 import type { BarDataItem } from '../BarChart/BarChart';
 import type { Severity } from '../../constants';
 import { NavLink } from 'react-router-dom';
@@ -15,6 +15,7 @@ import type { PostureReportDTO, ServiceDTO, VulnerabilityDTO } from '../../api/t
 import { useSystemStatus } from '../../state/useSystemStatus';
 import type { ScanType } from '../scan';
 import timelineMockJson from '../../../timelinemock3.json?raw';
+import { Icon } from '../Icon/Icon';
 
 type VulnerabilityStat = {
   severity: Severity;
@@ -31,7 +32,7 @@ type ScanWidgetsInfo = {
 // Timeline data source toggle: set to false to use live API, true for static mock
 const use_mock_data = false;
 
-const PLACEHOLDER = '—';
+const PLACEHOLDER = '-';
 
 // Fleet health is reported on a 0–100 scale (100 = healthy). The donut shows the
 // complementary 0–10 risk so it lines up with CVSS-style severity ranks.
@@ -62,7 +63,7 @@ function compromisedServiceCount(services: readonly ServiceDTO[], openVulns: rea
 // for anything from a lab subnet (a handful of hosts) to a large estate.
 const BAR_CHART_STEPS = [4, 8, 20, 40, 100, 200, 400, 1000, 2000, 4000, 10000] as const;
 function barChartStep(data: readonly BarDataItem[]): number {
-  const peak = Math.max(0, ...data.map((item) => item.value));
+  const peak = Math.max(0, ...data.map((item) => item.value ?? 0));
   return BAR_CHART_STEPS.find((step) => peak <= step) ?? Math.ceil(peak / 4) * 4;
 }
 
@@ -108,80 +109,133 @@ function getMockTimeline(): NetworkData {
   return parseTimeline(JSON.parse(timelineMockJson) as unknown);
 }
 
-function Home() {
-  const [timelineData, setTimelineData] = useState<NetworkData | null>(null);
-  const [timelineLoading, setTimelineLoading] = useState(true);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
+type TimelineLoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; data: NetworkData }
+  | { status: 'error'; error: string };
 
-  // Live dashboard data. Everything re-fetches automatically when a scan finishes.
-  const { status, error: statusError, backendStartedAt, scanGeneration } = useSystemStatus();
-  const posture = useApiResource(fetchPosture, scanGeneration);
-  const devices = useApiResource(fetchDevices, scanGeneration);
-  const services = useApiResource(fetchServices, scanGeneration);
-  const vulnerabilities = useApiResource(fetchVulnerabilities, scanGeneration);
+function TimelineWidget({ blocked, blockedError }: { blocked: boolean; blockedError: string }) {
+  const [state, setState] = useState<TimelineLoadState>({ status: 'loading' });
 
   useEffect(() => {
+    if (blocked) return;
+
     const controller = new AbortController();
 
     (use_mock_data ? Promise.resolve(getMockTimeline()) : getTimeline(controller.signal))
-      .then(setTimelineData)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setState({ status: 'ready', data });
+        }
+      })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === 'AbortError') return;
-        setTimelineError(error instanceof Error ? error.message : 'Could not load timeline');
-      })
-      .finally(() => setTimelineLoading(false));
+        if (!controller.signal.aborted) {
+          setState({
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Could not load timeline',
+          });
+        }
+      });
 
     return () => controller.abort();
-  }, [scanGeneration]);
+  }, [blocked]);
+
+  return (
+    <div className='widget widget--timeline'>
+      {blocked ? (
+        <div className='widget--timeline__error'>
+          <Icon name="report" className='widget--timeline__error__icon'/>
+          <p role='alert' className='widget--timeline__error__text'>{blockedError}</p>
+        </div>
+      ) : state.status === 'loading' ? (
+        <NetworkTimelineSkeleton />
+      ) : state.status === 'error' ? (
+        <div className='widget--timeline__error'>
+          <Icon name="report" className='widget--timeline__error__icon'/>
+          <p role='alert' className='widget--timeline__error__text'>{state.error}</p>
+        </div>
+      ) : (
+        <NetworkTimeline data={state.data} />
+      )}
+    </div>
+  );
+}
+
+function Home() {
+  // Live dashboard data. Everything re-fetches automatically when a scan finishes.
+  const { status, error: statusError, backendStartedAt, scanGeneration } = useSystemStatus();
+  const resourceRefreshKey = `${scanGeneration}:${statusError !== null}`;
+  const posture = useApiResource(fetchPosture, resourceRefreshKey);
+  const devices = useApiResource(fetchDevices, resourceRefreshKey);
+  const services = useApiResource(fetchServices, resourceRefreshKey);
+  const vulnerabilities = useApiResource(fetchVulnerabilities, resourceRefreshKey);
+
+  const dataErrors = [statusError, posture.error, devices.error, services.error, vulnerabilities.error]
+    .filter((message): message is string => message !== null);
+  const hasDataError = dataErrors.length > 0;
 
   const openVulns = useMemo(
     () => (vulnerabilities.data ?? []).filter((vuln) => vuln.status === 'open'),
     [vulnerabilities.data],
   );
 
-  const vulnerabilityScore = fleetRiskScore(posture.data);
+  const vulnerabilityScore = hasDataError ? 0 : fleetRiskScore(posture.data);
   const severityRank: Severity = severityFromScore(vulnerabilityScore);
-  const vulnerabilityTotal = vulnerabilities.data ? openVulns.length : status?.total_vulnerabilities ?? null;
+  const vulnerabilityTotal = hasDataError
+    ? null
+    : vulnerabilities.data
+      ? openVulns.length
+      : status?.total_vulnerabilities ?? null;
   const vulnerabilityStats = useMemo(() => countBySeverity(openVulns), [openVulns]);
 
   const barChartDataDevices = useMemo<BarDataItem[]>(() => {
     const list = devices.data ?? [];
     return [
-      { label: 'TOTAL', value: devices.data ? list.length : status?.total_devices ?? 0 },
-      { label: 'ONLINE', value: devices.data ? list.filter((d) => d.status === 'up').length : status?.active_devices ?? 0 },
-      { label: 'COMPROMISED', value: list.filter((d) => (d.vulnerabilities_count ?? 0) > 0).length },
+      {
+        label: 'TOTAL',
+        value: hasDataError ? null : devices.data ? list.length : status?.total_devices ?? 0,
+      },
+      {
+        label: 'ONLINE',
+        value: hasDataError ? null : devices.data ? list.filter((d) => d.status === 'up').length : status?.active_devices ?? 0,
+      },
+      { label: 'COMPROMISED', value: hasDataError ? null : list.filter((d) => (d.vulnerabilities_count ?? 0) > 0).length },
     ];
-  }, [devices.data, status?.total_devices, status?.active_devices]);
+  }, [devices.data, hasDataError, status?.total_devices, status?.active_devices]);
 
   const barChartDataServices = useMemo<BarDataItem[]>(() => {
     const list = services.data ?? [];
     return [
-      { label: 'TOTAL', value: list.length },
-      { label: 'OPEN', value: services.data ? list.filter((s) => s.state === 'open').length : status?.total_services ?? 0 },
-      { label: 'COMPROMISED', value: compromisedServiceCount(list, openVulns) },
+      {
+        label: 'TOTAL',
+        value: hasDataError ? null : list.length,
+      },
+      {
+        label: 'OPEN',
+        value: hasDataError ? null : services.data ? list.filter((s) => s.state === 'open').length : status?.total_services ?? 0,
+      },
+      { label: 'COMPROMISED', value: hasDataError ? null : compromisedServiceCount(list, openVulns) },
     ];
-  }, [services.data, openVulns, status?.total_services]);
+  }, [services.data, hasDataError, openVulns, status?.total_services]);
 
   const scanWidgetsInfo: ScanWidgetsInfo[] = [
     {
       type: 'discovery',
       route: `${ROUTES.SCANS}?type=discovery`,
-      time: nextRunLabel(status?.discovery_next_run, status?.is_discovery_running ?? false),
+      time: hasDataError ? PLACEHOLDER : nextRunLabel(status?.discovery_next_run, status?.is_discovery_running ?? false),
     },
     {
       type: 'vulnerability',
       route: `${ROUTES.SCANS}?type=vulnerability`,
-      time: nextRunLabel(status?.vuln_next_run, status?.is_vuln_running ?? false),
+      time: hasDataError ? PLACEHOLDER : nextRunLabel(status?.vuln_next_run, status?.is_vuln_running ?? false),
     },
   ];
 
   // Backend process start time, derived from the reported uptime.
-  const activeSince = backendStartedAt;
+  const activeSince = hasDataError ? null : backendStartedAt;
   const uptimeDisplay = useUptime(activeSince ?? 0);
   const activeSinceFormated = activeSince ? formatDate(activeSince) : PLACEHOLDER;
-
-  const dataErrors = [statusError, posture.error, devices.error, services.error, vulnerabilities.error]
-    .filter((message): message is string => message !== null);
 
   return (
     <div className='dashboard-shell'>
@@ -204,7 +258,9 @@ function Home() {
             </div>
             {vulnerabilityStats.map((item) => (
               <div key={item.severity} className={`vuln-stats__item vuln-stats__item--${item.severity}`}>
-                <p className='vuln-stats__item__score'>{vulnerabilities.data ? item.count : PLACEHOLDER}</p>
+                <p className='vuln-stats__item__score'>
+                  {hasDataError ? PLACEHOLDER : vulnerabilities.data ? item.count : PLACEHOLDER}
+                </p>
                 <p className='vuln-stats__item__label'>{item.label}</p>
               </div>
             ))}
@@ -227,8 +283,12 @@ function Home() {
             <div key={item.type} className={`widget uptime-scans__scans uptime-scans__scans--${item.type}`}>
               <p className='uptime-scans__scans__label'>Next {item.type} scan:</p>
               <p className='uptime-scans__scans__time'>{item.time}</p>
-              <NavLink to={item.route} className='btn btn--light uptime-scans__scans__button'>
-                Go to scans
+              <NavLink
+                to={item.route}
+                state={{ triggerScanType: item.type }}
+                className='btn btn--light uptime-scans__scans__button'
+              >
+                Trigger scan
               </NavLink>
             </div>
           ))}
@@ -243,15 +303,11 @@ function Home() {
         </div>
 
         {/* Row 3 */}
-        <div className='widget widget--timeline'>
-          {timelineLoading ? (
-            <p>Loading timeline...</p>
-          ) : timelineError ? (
-            <p role='alert'>{timelineError}</p>
-          ) : timelineData ? (
-            <NetworkTimeline data={timelineData} />
-          ) : null}
-        </div>
+        <TimelineWidget
+          key={`${scanGeneration}:${statusError !== null}`}
+          blocked={statusError !== null}
+          blockedError={statusError ?? 'Could not connect to the backend'}
+        />
       </div>
     </div>
   );

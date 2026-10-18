@@ -139,16 +139,12 @@
     }
 }
 
-.table__row:nth-child(odd) .table__cell{
+.table__row:nth-child(odd):not(.table__row--selected) .table__cell{
     background-color: var(--bg-tertiary);
 }
 
-.table__row:nth-child(even) .table__cell{
+.table__row:nth-child(even):not(.table__row--selected) .table__cell{
     background-color: var(--bg-secondary);
-}
-
-.table__row[role="button"]{
-    cursor: pointer;
 }
 
 .table__row--selected .table__cell{
@@ -166,21 +162,41 @@
     
 }
 
-.table__row:nth-child(odd) .table__cell::after{
+.table__row:nth-child(odd):not(.table__row--selected) .table__cell::after{
     background-image: linear-gradient(to right, transparent, var(--bg-tertiary) 75%);
 }
 
-.table__row:nth-child(even) .table__cell::after{
+.table__row:nth-child(even):not(.table__row--selected) .table__cell::after{
     background-image: linear-gradient(to right, transparent, var(--bg-secondary) 75%);
 }
 
-.table__row--selected .table__cell::after{
-    background-image: linear-gradient(to right, transparent, var(--bg-quaternary) 75%);
+
+
+
+
+.table__row[role="button"]{
+    cursor: pointer;
 }
 
-.table__row[role="button"]:focus-visible .table__cell{
-    outline: 0.2rem solid var(--accent-light);
-    outline-offset: -0.2rem;
+.table__row[role="button"]:hover{
+    .table__cell{
+        background-color: var(--light-secondary);
+        color: var(--bg-main);
+    }
+    .table__cell::after{
+        background-image: linear-gradient(to right, transparent, var(--light-secondary) 75%);
+    }
+}
+
+.table__row--selected,
+.table__row--selected[role="button"]:hover {
+    .table__cell{
+        background-color: var(--accent);
+        color: var(--light-main);
+    }
+    .table__cell::after{
+        background-image: linear-gradient(to right, transparent, var(--accent) 75%);
+    }
 }
 
 .table__header__label,
@@ -195,7 +211,7 @@
     min-width: 0;
 }
 
-.table__value-container:hover::after {
+.table__row .table__value-container:hover::after {
     content: attr(data-full-value);
     position: absolute;
     z-index: 10;
@@ -208,6 +224,10 @@
     overflow-wrap: anywhere;
     border-radius: 0.2rem;
     background-color: var(--bg-main);
+}
+
+.table__row:hover .table__value-container:hover::after {
+    color: var(--light-main); 
 }
 
 .table__header__btn{
