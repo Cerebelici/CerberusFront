@@ -79,9 +79,14 @@ export default function Settings() {
       setFeedback(null);
       const caps = await setupNmapPrivileges();
       setCapabilities(caps);
+      setSettings((prev) => ({
+        ...prev,
+        unprivileged_mode: caps.effective_mode !== 'privileged',
+        nmap_path: caps.nmap_path || prev.nmap_path,
+      }));
       setFeedback({
         type: 'success',
-        message: 'Privilege configuration updated! Live mode: ' + caps.effective_mode,
+        message: 'Privilege configuration updated! Live mode: ' + caps.effective_mode.toUpperCase(),
       });
     } catch (err: unknown) {
       setFeedback({
@@ -113,7 +118,7 @@ export default function Settings() {
           <div className="settings-header-actions">
             <button
               type="button"
-              className="btn-secondary"
+              className="btn btn--dark"
               onClick={loadData}
               disabled={saving || elevating}
             >
@@ -121,7 +126,7 @@ export default function Settings() {
             </button>
             <button
               type="submit"
-              className="btn-primary"
+              className="btn btn--accent"
               disabled={saving || elevating}
             >
               <Icon name={saving ? 'progress_activity' : 'add'} />
@@ -201,12 +206,12 @@ export default function Settings() {
 
             <div className="settings-status-box">
               <div className="settings-status-row">
-                <span style={{ color: '#64748b' }}>Active Target Subnet:</span>
-                <strong style={{ color: '#38bdf8' }}>{settings.effective_cidr || 'Pending scan'}</strong>
+                <span className="settings-status-key">Active Target Subnet:</span>
+                <strong className="settings-status-val">{settings.effective_cidr || 'Pending scan'}</strong>
               </div>
               <div className="settings-status-row">
-                <span style={{ color: '#64748b' }}>Self Host Exclude IP:</span>
-                <strong style={{ color: '#a855f7' }}>{settings.effective_exclude_ip || 'None'}</strong>
+                <span className="settings-status-key">Self Host Exclude IP:</span>
+                <strong className="settings-status-val">{settings.effective_exclude_ip || 'None'}</strong>
               </div>
             </div>
           </div>
@@ -314,21 +319,21 @@ export default function Settings() {
 
             <div className="settings-status-box">
               <div className="settings-status-row">
-                <span style={{ color: '#64748b' }}>Binary Location:</span>
-                <span style={{ color: '#f8fafc', wordBreak: 'break-all' }}>{capabilities?.nmap_path || 'Not Found'}</span>
+                <span className="settings-status-key">Binary Location:</span>
+                <span className="settings-status-val" style={{ wordBreak: 'break-all' }}>{capabilities?.nmap_path || 'Not Found'}</span>
               </div>
               <div className="settings-status-row">
-                <span style={{ color: '#64748b' }}>Version:</span>
-                <span style={{ color: '#f8fafc' }}>{capabilities?.nmap_version || 'Unknown'}</span>
+                <span className="settings-status-key">Version:</span>
+                <span className="settings-status-val">{capabilities?.nmap_version || 'Unknown'}</span>
               </div>
               <div className="settings-status-row">
-                <span style={{ color: '#64748b' }}>Vuln Script (vulners.nse):</span>
-                <span style={{ color: capabilities?.vuln_script_ok ? '#22c55e' : '#ef4444' }}>
+                <span className="settings-status-key">Vuln Script (vulners.nse):</span>
+                <span style={{ color: capabilities?.vuln_script_ok ? 'var(--risk-low--light)' : 'var(--risk-critical--light)', fontWeight: 600 }}>
                   {capabilities?.vuln_script_ok ? 'READY' : 'MISSING'}
                 </span>
               </div>
               <div className="settings-status-row">
-                <span style={{ color: '#64748b' }}>Live Engine Mode:</span>
+                <span className="settings-status-key">Live Engine Mode:</span>
                 <span className={`settings-badge settings-badge--${capabilities?.effective_mode || 'unprivileged'}`}>
                   {capabilities?.effective_mode || 'UNPRIVILEGED'}
                 </span>
@@ -337,7 +342,8 @@ export default function Settings() {
 
             <button
               type="button"
-              className="btn-action-priv"
+              className="btn btn--light"
+              style={{ width: '100%', justifyContent: 'center', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
               onClick={handleElevatePrivileges}
               disabled={elevating || saving}
             >
