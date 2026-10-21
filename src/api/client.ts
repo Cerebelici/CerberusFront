@@ -1,4 +1,5 @@
 import { env } from '../config/env'
+import { isWailsApp, dispatchWailsIpc } from './wailsBridge'
 
 export type ApiErrorKind = 'http' | 'network' | 'timeout' | 'invalid-response'
 
@@ -87,6 +88,27 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
   if (env.apiKey) headers['X-API-Key'] = env.apiKey
 
   try {
+    if (isWailsApp()) {
+      try {
+        const ipcResult = await dispatchWailsIpc(path, method, body)
+        if (ipcResult !== null) {
+          try {
+            return parse(ipcResult)
+          } catch {
+            throw new ApiError(`The ${resource} API returned an invalid response`, 'invalid-response', 200, ipcResult)
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof ApiError) throw err
+        throw new ApiError(
+          errorMessage(err, `Could not ${action} ${resource} via desktop IPC`),
+          'network',
+          null,
+          err,
+        )
+      }
+    }
+
     let response: Response
     let text: string
     try {

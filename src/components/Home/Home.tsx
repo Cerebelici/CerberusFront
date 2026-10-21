@@ -13,6 +13,7 @@ import { fetchDevices, fetchServices, fetchVulnerabilities } from '../../api/inv
 import { fetchPosture } from '../../api/system';
 import type { PostureReportDTO, ServiceDTO, VulnerabilityDTO } from '../../api/types';
 import { useSystemStatus } from '../../state/useSystemStatus';
+import { apiRequest } from '../../api/client';
 import type { ScanType } from '../scan';
 import timelineMockJson from '../../../timelinemock3.json?raw';
 import { Icon } from '../Icon/Icon';
@@ -91,18 +92,11 @@ function parseTimeline(body: unknown): NetworkData {
 }
 
 async function getTimeline(signal?: AbortSignal): Promise<NetworkData> {
-  const response = await fetch('/api/timeline', {
-    method: 'GET',
+  return apiRequest('/api/timeline', {
+    resource: 'timeline',
+    parse: parseTimeline,
     signal,
-    headers: { Accept: 'application/json' },
-    credentials: 'same-origin',
   });
-
-  if (!response.ok) {
-    throw new Error(`Could not load timeline (HTTP ${response.status})`);
-  }
-
-  return parseTimeline(await response.json());
 }
 
 function getMockTimeline(): NetworkData {

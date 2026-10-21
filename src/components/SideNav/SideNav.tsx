@@ -12,7 +12,8 @@ type NavItem =
   | { id: 'devices';         label: 'DEVICES';  route: string; icon: IconName; badge: 'total_devices' }
   | { id: 'services';        label: 'SERVICES'; route: string; icon: IconName; badge: 'total_services' }
   | { id: 'vulnerabilities'; label: 'ISSUES';   route: string; icon: IconName; badge: 'total_vulnerabilities' }
-  | { id: 'scans';           label: 'SCANS';    route: string; icon: IconName; meta: true };
+  | { id: 'scans';           label: 'SCANS';    route: string; icon: IconName; meta: true }
+  | { id: 'settings';        label: 'CONFIG';   route: string; icon: IconName };
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home',            label: 'HOME',     route: ROUTES.HOME,            icon: 'home' },
@@ -20,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'services',        label: 'SERVICES', route: ROUTES.SERVICES,        icon: 'linked_services',   badge: 'total_services' },
   { id: 'vulnerabilities', label: 'ISSUES',   route: ROUTES.VULNERABILITIES, icon: 'frame_exclamation', badge: 'total_vulnerabilities' },
   { id: 'scans',           label: 'SCANS',    route: ROUTES.SCANS,           icon: 'mystery',           meta: true },
+  { id: 'settings',        label: 'CONFIG',   route: ROUTES.SETTINGS,        icon: 'settings' },
 ];
 
 type BadgeKey = 'total_devices' | 'total_services' | 'total_vulnerabilities';

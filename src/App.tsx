@@ -7,6 +7,7 @@ import Devices from './components/Devices/Devices.tsx';
 import Vulnerabilities from './components/Vulnerabilities/Vulnerabilities.tsx';
 import Services from './components/Services/Services.tsx';
 import { ScanPage } from './components/scan';
+import Settings from './components/Settings/Settings.tsx';
 
 function App() {
   const { pathname } = useLocation();
@@ -23,6 +24,7 @@ function App() {
           <Route path={ROUTES.SERVICES} element={<Services/>} ></Route>
           <Route path={ROUTES.VULNERABILITIES} element={<Vulnerabilities/>}></Route>
           <Route path={ROUTES.SCANS} element={<ScanPage/>}></Route>
+          <Route path={ROUTES.SETTINGS} element={<Settings/>}></Route>
         </Routes>
       </main>
     </div>

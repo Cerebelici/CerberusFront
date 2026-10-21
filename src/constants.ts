@@ -4,6 +4,7 @@ export const ROUTES = {
     SERVICES: '/services',
     VULNERABILITIES: '/vulnerabilities',
     SCANS: '/scans',
+    SETTINGS: '/settings',
 } as const;
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'none';
