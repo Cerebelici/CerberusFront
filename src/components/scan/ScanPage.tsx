@@ -111,7 +111,7 @@ function ScanPage() {
         ))}
       </div>
 
-      <ScanHistoryTable scans={history.data} loading={history.loading} error={history.error} />
+      <ScanHistoryTable scans={history.data} loading={history.loading} error={history.error} onCleared={handleUpdate} />
     </div>
   )
 }

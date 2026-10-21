@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import './Settings.css';
 import { Icon } from '../Icon/Icon';
+import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
+import { clearAllDevices, clearScanHistory } from '../../api/inventory';
 import {
   fetchSettings,
   saveSettings,
@@ -14,6 +16,9 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [elevating, setElevating] = useState(false);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [isResetDevicesModalOpen, setIsResetDevicesModalOpen] = useState(false);
+  const [isClearScansModalOpen, setIsClearScansModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [settings, setSettings] = useState<AppSettingsDTO>({
@@ -95,6 +100,46 @@ export default function Settings() {
       });
     } finally {
       setElevating(false);
+    }
+  };
+
+  const handleResetDevices = async () => {
+    try {
+      setMaintenanceLoading(true);
+      setFeedback(null);
+      const res = await clearAllDevices();
+      setIsResetDevicesModalOpen(false);
+      setFeedback({
+        type: 'success',
+        message: `Network inventory reset successfully! Deleted ${res.deleted} tracked devices. Ready for clean discovery scan.`,
+      });
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to reset network inventory',
+      });
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  const handleClearScans = async () => {
+    try {
+      setMaintenanceLoading(true);
+      setFeedback(null);
+      const res = await clearScanHistory();
+      setIsClearScansModalOpen(false);
+      setFeedback({
+        type: 'success',
+        message: `Cleared ${res.deleted} scan execution logs.`,
+      });
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to clear scan history',
+      });
+    } finally {
+      setMaintenanceLoading(false);
     }
   };
 
@@ -351,8 +396,78 @@ export default function Settings() {
               {elevating ? 'REQUESTING OS ELEVATION...' : 'GRANT ROOT / ADMIN PRIVILEGES'}
             </button>
           </div>
+
+          {/* 5. Database & Network Maintenance */}
+          <div className="settings-card">
+            <div className="settings-card-title">
+              <Icon name="delete" /> Database & Maintenance
+            </div>
+
+            <p style={{ fontSize: '1.3rem', color: 'var(--light-secondary)', lineHeight: 1.5 }}>
+              Use these options when you move your machine to a different network (e.g. coffee shop, office, home) or want a fresh start.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.6rem', marginTop: '0.4rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                  <span style={{ fontSize: '1.3rem', fontWeight: 600, color: 'var(--light-main)' }}>Reset Network Inventory</span>
+                  <span style={{ fontSize: '1.15rem', color: 'var(--light-secondary)' }}>Deletes all devices, ports, and vulns. Preserves scan history.</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn--dark"
+                  style={{ color: 'var(--risk-critical--light)', borderColor: 'var(--risk-critical)' }}
+                  onClick={() => setIsResetDevicesModalOpen(true)}
+                  disabled={maintenanceLoading || saving || elevating}
+                >
+                  <Icon name="delete" />
+                  <span>RESET INVENTORY</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', borderTop: '1px solid var(--bg-tertiary)', paddingTop: '1.6rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                  <span style={{ fontSize: '1.3rem', fontWeight: 600, color: 'var(--light-main)' }}>Clear Scan Execution Logs</span>
+                  <span style={{ fontSize: '1.15rem', color: 'var(--light-secondary)' }}>Deletes past scan audit records. Preserves devices.</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn--dark"
+                  onClick={() => setIsClearScansModalOpen(true)}
+                  disabled={maintenanceLoading || saving || elevating}
+                >
+                  <Icon name="delete" />
+                  <span>CLEAR SCANS</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </form>
+
+      {/* Reset Devices Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isResetDevicesModalOpen}
+        title="Reset Network Inventory?"
+        message="Are you sure you want to permanently delete all tracked devices, open services, and vulnerability findings?"
+        subMessage="Use this when moving to a new network to start a fresh scan. Past scan logs and application configuration settings will remain intact."
+        confirmLabel="Reset Inventory"
+        loading={maintenanceLoading}
+        onConfirm={handleResetDevices}
+        onCancel={() => !maintenanceLoading && setIsResetDevicesModalOpen(false)}
+      />
+
+      {/* Clear Scans Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isClearScansModalOpen}
+        title="Clear Scan Execution History?"
+        message="Are you sure you want to permanently delete all historical scan execution records?"
+        subMessage="Discovered devices, open services, and vulnerability findings will remain untouched."
+        confirmLabel="Clear Scan History"
+        loading={maintenanceLoading}
+        onConfirm={handleClearScans}
+        onCancel={() => !maintenanceLoading && setIsClearScansModalOpen(false)}
+      />
     </div>
   );
 }

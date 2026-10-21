@@ -341,9 +341,11 @@ function TableFilter<T extends object>({
           type="button"
           onClick={onClearFilters}
           disabled={filters.length === 0}
+          aria-label="Reset all table filters"
+          title="Reset all active search filters"
         >
-          <Icon name="delete" className="filter__icon" />
-          <span>Clear all</span>
+          <Icon name="close" className="filter__icon" />
+          <span>Reset filters</span>
         </button>
       </div>
 

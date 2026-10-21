@@ -97,7 +97,9 @@ function TableRows<T extends object>({
                         const displayValue = String(value ?? "—")
                         let content
 
-                        if (column.display?.kind === "status") {
+                        if (column.render) {
+                            content = column.render(value, row)
+                        } else if (column.display?.kind === "status") {
                             content = (
                                 <StatusIndicator
                                     value={displayValue}

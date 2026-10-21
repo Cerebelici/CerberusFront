@@ -11,9 +11,13 @@ export interface WailsBridge {
   GetDeviceByID(id: number): Promise<unknown>;
   UpdateDevice(id: number, label: string | null, criticality: string | null, notes: string | null): Promise<unknown>;
   DeleteDevice(id: number): Promise<unknown>;
+  ClearAllDevices(): Promise<{ status: string; deleted: number }>;
   GetServices(): Promise<unknown>;
+  DeleteService(id: number): Promise<unknown>;
   GetVulnerabilities(severity: string): Promise<unknown>;
+  DeleteVulnerability(id: number): Promise<unknown>;
   GetScans(limit: number): Promise<unknown>;
+  ClearScanHistory(): Promise<{ status: string; deleted: number }>;
   TriggerDiscovery(): Promise<unknown>;
   TriggerVulnerabilityScan(): Promise<unknown>;
   GetSettings(): Promise<unknown>;
@@ -76,9 +80,14 @@ export async function dispatchWailsIpc(
   }
 
   // 3. Devices
-  if (cleanPath === '/api/devices' && method === 'GET') {
-    const status = query.get('status') || '';
-    return await bridge.GetDevices(status);
+  if (cleanPath === '/api/devices') {
+    if (method === 'GET') {
+      const status = query.get('status') || '';
+      return await bridge.GetDevices(status);
+    }
+    if (method === 'DELETE') {
+      return await bridge.ClearAllDevices();
+    }
   }
 
   const deviceMatch = cleanPath.match(/^\/api\/devices\/(\d+)$/);
@@ -105,17 +114,32 @@ export async function dispatchWailsIpc(
   if (cleanPath === '/api/services' && method === 'GET') {
     return await bridge.GetServices();
   }
+  const serviceMatch = cleanPath.match(/^\/api\/services\/(\d+)$/);
+  if (serviceMatch && method === 'DELETE') {
+    const serviceId = parseInt(serviceMatch[1], 10);
+    return await bridge.DeleteService(serviceId);
+  }
 
   // 5. Vulnerabilities
   if (cleanPath === '/api/vulnerabilities' && method === 'GET') {
     const severity = query.get('severity') || '';
     return await bridge.GetVulnerabilities(severity);
   }
+  const vulnMatch = cleanPath.match(/^\/api\/vulnerabilities\/(\d+)$/);
+  if (vulnMatch && method === 'DELETE') {
+    const vulnId = parseInt(vulnMatch[1], 10);
+    return await bridge.DeleteVulnerability(vulnId);
+  }
 
   // 6. Scans
-  if (cleanPath === '/api/scans' && method === 'GET') {
-    const limit = parseInt(query.get('limit') || '50', 10);
-    return await bridge.GetScans(limit);
+  if (cleanPath === '/api/scans') {
+    if (method === 'GET') {
+      const limit = parseInt(query.get('limit') || '50', 10);
+      return await bridge.GetScans(limit);
+    }
+    if (method === 'DELETE') {
+      return await bridge.ClearScanHistory();
+    }
   }
   if (cleanPath === '/api/scans/discovery/trigger' && method === 'POST') {
     return await bridge.TriggerDiscovery();

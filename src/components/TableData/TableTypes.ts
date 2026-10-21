@@ -15,6 +15,7 @@ export interface TableColumn<T> {
   sortable?: boolean
   filter?: FilterConfig
   display?: TableDisplay
+  render?: (value: T[keyof T], row: T) => React.ReactNode
 }
 
 export interface TableSort<T> {
