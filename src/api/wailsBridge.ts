@@ -137,3 +137,4 @@ export async function dispatchWailsIpc(
 
   return null;
 }
+

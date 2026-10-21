@@ -71,3 +71,4 @@ export async function setupNmapPrivileges(signal?: AbortSignal): Promise<Capabil
     signal,
   });
 }
+
