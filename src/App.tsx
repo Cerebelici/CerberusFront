@@ -8,6 +8,7 @@ import Vulnerabilities from './components/Vulnerabilities/Vulnerabilities.tsx';
 import Services from './components/Services/Services.tsx';
 import { ScanPage } from './components/scan';
 import Settings from './components/Settings/Settings.tsx';
+import DebugLogs from './components/DebugLogs/DebugLogs.tsx';
 
 function App() {
   const { pathname } = useLocation();
@@ -20,11 +21,13 @@ function App() {
           <Home />
         </div>
         <Routes>
+          <Route path={ROUTES.HOME} element={null}></Route>
           <Route path={ROUTES.DEVICES} element={<Devices/>}></Route>
           <Route path={ROUTES.SERVICES} element={<Services/>} ></Route>
           <Route path={ROUTES.VULNERABILITIES} element={<Vulnerabilities/>}></Route>
           <Route path={ROUTES.SCANS} element={<ScanPage/>}></Route>
           <Route path={ROUTES.SETTINGS} element={<Settings/>}></Route>
+          <Route path={ROUTES.LOGS} element={<DebugLogs/>}></Route>
         </Routes>
       </main>
     </div>

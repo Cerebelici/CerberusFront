@@ -3,6 +3,7 @@ import { ApiError, errorMessage, isAbortError } from '../../api/client'
 import { triggerScan } from './scanApi'
 import { BUSY_PHASES, type ScanType, type TriggerState } from './scanTypes'
 import { latestScanId, watchTriggeredScan } from './scanWatcher'
+import { logger } from '../../services/logger'
 
 const IDLE: TriggerState = { phase: 'idle', message: null, scan: null }
 
@@ -52,13 +53,20 @@ export function useTriggerScan(scanType: ScanType, onUpdate?: () => void): Trigg
     try {
       const baselineScanId = await latestScanId(signal)
       const accepted = await triggerScan(scanType, signal)
+      logger.info(scanType === 'discovery' ? 'DiscoveryScanner' : 'VulnEngine', `Operator dispatched ${scanType} scan. Server response: ${accepted.message}`);
       setState({ phase: 'queued', message: accepted.message, scan: null })
       notify()
 
       const outcome = await watchTriggeredScan(scanType, baselineScanId, signal, (scan) => {
+        logger.info(scanType === 'discovery' ? 'DiscoveryScanner' : 'VulnEngine', `Nmap scan #${scan.id} actively executing against [${scan.target_spec}].`);
         setState({ phase: 'running', message: `Scan #${scan.id} running against ${scan.target_spec}`, scan })
         notify()
       })
+      if (outcome.phase === 'completed' && outcome.scan) {
+        logger.info(scanType === 'discovery' ? 'DiscoveryScanner' : 'VulnEngine', `Scan #${outcome.scan.id} successfully completed in ${outcome.scan.duration_ms}ms.`);
+      } else if (outcome.phase === 'failed' && outcome.scan) {
+        logger.error(scanType === 'discovery' ? 'DiscoveryScanner' : 'VulnEngine', `Scan #${outcome.scan.id} failed: ${outcome.scan.error_message}`);
+      }
       setState(outcome)
     } catch (error: unknown) {
       if (isAbortError(error)) return

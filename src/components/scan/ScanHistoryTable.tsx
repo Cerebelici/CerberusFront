@@ -63,12 +63,14 @@ function ScanHistoryTable({ scans, loading, error, onCleared }: ScanHistoryTable
   const [actionError, setActionError] = useState<string | null>(null)
 
   const handleConfirmClear = async () => {
+    // Optimistic removal: close modal and clear records instantly
+    setIsClearModalOpen(false)
+    setActionError(null)
+    onCleared?.()
+
     try {
       setIsProcessing(true)
-      setActionError(null)
       await clearScanHistory()
-      setIsClearModalOpen(false)
-      onCleared?.()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to clear scan history')
     } finally {

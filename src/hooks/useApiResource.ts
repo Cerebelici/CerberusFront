@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { errorMessage, isAbortError } from '../api/client'
 
 export type ResourceLoader<T> = (signal: AbortSignal) => Promise<T>
@@ -9,6 +9,7 @@ export interface ApiResource<T> {
   loading: boolean
   error: string | null
   reload: () => void
+  setData: Dispatch<SetStateAction<T | null>>
 }
 
 /**
@@ -45,5 +46,5 @@ export function useApiResource<T>(loader: ResourceLoader<T>, refreshKey: unknown
 
   const reload = useCallback(() => setReloadToken((token) => token + 1), [])
 
-  return { data, loading, error, reload }
+  return { data, loading, error, reload, setData }
 }

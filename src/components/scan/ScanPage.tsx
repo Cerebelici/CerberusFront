@@ -34,11 +34,18 @@ function ScanPage() {
   // Refetch history when a scan starts or finishes (as seen by the shared status poller).
   const history = useApiResource(loadScanHistory, `${scanGeneration}:${anyRunning}`)
   const reloadHistory = history.reload
+  const setHistoryData = history.setData
 
   const handleUpdate = useCallback(() => {
     refresh()
     reloadHistory()
   }, [refresh, reloadHistory])
+
+  const handleHistoryCleared = useCallback(() => {
+    setHistoryData([])
+    refresh()
+    reloadHistory()
+  }, [setHistoryData, refresh, reloadHistory])
 
   const discoveryController = useTriggerScan('discovery', handleUpdate)
   const vulnerabilityController = useTriggerScan('vulnerability', handleUpdate)
@@ -111,7 +118,7 @@ function ScanPage() {
         ))}
       </div>
 
-      <ScanHistoryTable scans={history.data} loading={history.loading} error={history.error} onCleared={handleUpdate} />
+      <ScanHistoryTable scans={history.data} loading={history.loading} error={history.error} onCleared={handleHistoryCleared} />
     </div>
   )
 }

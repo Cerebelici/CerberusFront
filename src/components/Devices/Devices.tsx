@@ -45,7 +45,7 @@ function toDevice(deviceJSON: DeviceDTO): Device {
 
 function Devices() {
   const { scanGeneration, refresh } = useSystemStatus()
-  const { data, loading, error } = useApiResource(fetchDevices, scanGeneration)
+  const { data, loading, error, reload, setData } = useApiResource(fetchDevices, scanGeneration)
   const rows = useMemo(() => (data ?? []).map(toDevice), [data])
 
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null)
@@ -112,13 +112,19 @@ function Devices() {
 
   const handleConfirmDeleteDevice = async () => {
     if (!deviceToDelete) return
+    const target = deviceToDelete
+    // Optimistic removal: instantly close modal and remove record from table
+    setDeviceToDelete(null)
+    setActionError(null)
+    setData((current) => (current ? current.filter((d) => d.id !== target.id) : current))
+
     try {
       setIsProcessing(true)
-      setActionError(null)
-      await deleteDevice(deviceToDelete.id)
-      setDeviceToDelete(null)
+      await deleteDevice(target.id)
       refresh()
     } catch (err) {
+      // Rollback on failure
+      reload()
       setActionError(err instanceof Error ? err.message : "Failed to delete device")
     } finally {
       setIsProcessing(false)
@@ -126,13 +132,18 @@ function Devices() {
   }
 
   const handleConfirmClearAll = async () => {
+    // Optimistic removal: instantly close modal and clear all records from table
+    setIsClearAllOpen(false)
+    setActionError(null)
+    setData([])
+
     try {
       setIsProcessing(true)
-      setActionError(null)
       await clearAllDevices()
-      setIsClearAllOpen(false)
       refresh()
     } catch (err) {
+      // Rollback on failure
+      reload()
       setActionError(err instanceof Error ? err.message : "Failed to clear all devices")
     } finally {
       setIsProcessing(false)

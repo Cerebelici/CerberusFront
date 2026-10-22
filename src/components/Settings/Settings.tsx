@@ -167,7 +167,8 @@ export default function Settings() {
               onClick={loadData}
               disabled={saving || elevating}
             >
-              <Icon name="refresh" /> REFRESH
+              <Icon name="refresh" />
+              <span>REFRESH</span>
             </button>
             <button
               type="submit"
@@ -175,7 +176,7 @@ export default function Settings() {
               disabled={saving || elevating}
             >
               <Icon name={saving ? 'progress_activity' : 'add'} />
-              {saving ? 'SAVING...' : 'SAVE CHANGES'}
+              <span>{saving ? 'SAVING...' : 'SAVE CHANGES'}</span>
             </button>
           </div>
         </div>
@@ -398,25 +399,24 @@ export default function Settings() {
           </div>
 
           {/* 5. Database & Network Maintenance */}
-          <div className="settings-card">
+          <div className="settings-card settings-card--full">
             <div className="settings-card-title">
               <Icon name="delete" /> Database & Maintenance
             </div>
 
-            <p style={{ fontSize: '1.3rem', color: 'var(--light-secondary)', lineHeight: 1.5 }}>
+            <p className="settings-card-desc">
               Use these options when you move your machine to a different network (e.g. coffee shop, office, home) or want a fresh start.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.6rem', marginTop: '0.4rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                  <span style={{ fontSize: '1.3rem', fontWeight: 600, color: 'var(--light-main)' }}>Reset Network Inventory</span>
-                  <span style={{ fontSize: '1.15rem', color: 'var(--light-secondary)' }}>Deletes all devices, ports, and vulns. Preserves scan history.</span>
+            <div className="settings-maintenance-list">
+              <div className="settings-maintenance-row">
+                <div className="settings-maintenance-info">
+                  <span className="settings-maintenance-title">Reset Network Inventory</span>
+                  <span className="settings-maintenance-sub">Deletes all devices, ports, and vulns. Preserves scan history.</span>
                 </div>
                 <button
                   type="button"
-                  className="btn btn--dark"
-                  style={{ color: 'var(--risk-critical--light)', borderColor: 'var(--risk-critical)' }}
+                  className="btn btn--dark btn--danger-outline"
                   onClick={() => setIsResetDevicesModalOpen(true)}
                   disabled={maintenanceLoading || saving || elevating}
                 >
@@ -425,10 +425,10 @@ export default function Settings() {
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', borderTop: '1px solid var(--bg-tertiary)', paddingTop: '1.6rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                  <span style={{ fontSize: '1.3rem', fontWeight: 600, color: 'var(--light-main)' }}>Clear Scan Execution Logs</span>
-                  <span style={{ fontSize: '1.15rem', color: 'var(--light-secondary)' }}>Deletes past scan audit records. Preserves devices.</span>
+              <div className="settings-maintenance-row">
+                <div className="settings-maintenance-info">
+                  <span className="settings-maintenance-title">Clear Scan Execution Logs</span>
+                  <span className="settings-maintenance-sub">Deletes past scan audit records. Preserves devices.</span>
                 </div>
                 <button
                   type="button"
