@@ -58,6 +58,18 @@
   letter-spacing: 0.05rem;
 }
 
+.debug-sync-error {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 1.6rem;
+  background-color: rgba(192, 36, 80, 0.15);
+  border: 1px solid var(--risk-critical);
+  border-radius: 0.4rem;
+  color: var(--risk-critical--light);
+  font-size: 1.3rem;
+}
+
 .debug-diag-item {
   display: flex;
   align-items: center;

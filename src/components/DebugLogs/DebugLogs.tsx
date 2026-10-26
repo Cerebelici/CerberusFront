@@ -1,9 +1,21 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import './DebugLogs.css';
 import { Icon } from '../Icon/Icon';
-import { logger, type LogEntry, type LogLevel } from '../../services/logger';
+import { logger, type LogEntry } from '../../services/logger';
 import { useSystemStatus } from '../../state/useSystemStatus';
-import { fetchScanHistory } from '../scan/scanApi';
+import { errorMessage, isAbortError } from '../../api/client';
+import { isWailsApp } from '../../api/wailsBridge';
+
+// The desktop app pushes new daemon lines as events; over HTTP the page polls for them.
+const HTTP_LOG_POLL_MS = 3000;
+
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
+}
 
 export default function DebugLogs() {
   const [logs, setLogs] = useState<LogEntry[]>(() => logger.getLogs());
@@ -25,29 +37,29 @@ export default function DebugLogs() {
     return () => unsubscribe();
   }, []);
 
-  // Poll & ingest real backend Nmap scans from GET /api/scans
+  // Load the daemon log kept by the backend, then follow new lines.
+  const [syncError, setSyncError] = useState<string | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    const syncScans = async () => {
+    const controller = new AbortController();
+    let timer: number | undefined;
+
+    const sync = async () => {
       try {
-        const history = await fetchScanHistory(20);
-        if (!cancelled && history && Array.isArray(history)) {
-          // Ingest in chronological order (oldest first)
-          const chronological = [...history].reverse();
-          for (const scan of chronological) {
-            logger.ingestBackendScan(scan);
-          }
-        }
-      } catch {
-        // Backend offline or unreachable
+        await logger.syncBackendLogs(controller.signal);
+        setSyncError(null);
+      } catch (reason: unknown) {
+        if (isAbortError(reason)) return;
+        setSyncError(errorMessage(reason, 'Could not load the daemon log'));
+      }
+      if (!controller.signal.aborted && !isWailsApp()) {
+        timer = window.setTimeout(() => void sync(), HTTP_LOG_POLL_MS);
       }
     };
 
-    syncScans();
-    const interval = setInterval(syncScans, 4000);
+    void sync();
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      controller.abort();
+      window.clearTimeout(timer);
     };
   }, []);
 
@@ -130,37 +142,6 @@ export default function DebugLogs() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSimulateLog = () => {
-    const testCases: { level: LogLevel; source: string; msg: string; data?: any }[] = [
-      {
-        level: 'INFO',
-        source: 'DiscoveryScanner',
-        msg: 'Host ping sweep finished for 192.168.1.0/24 in 1.42s. 12 active hosts verified.',
-        data: { targetSubnet: '192.168.1.0/24', durationMs: 1420, hostsDiscovered: 12 },
-      },
-      {
-        level: 'WARN',
-        source: 'NmapWrapper',
-        msg: 'Port 445 (SMB) response latency > 350ms on host 192.168.1.45.',
-        data: { ip: '192.168.1.45', port: 445, latencyMs: 382 },
-      },
-      {
-        level: 'ERROR',
-        source: 'VulnEngine',
-        msg: 'CVE-2023-4911 (Looney Tunables) detected on host 192.168.1.10. CVSS score: 9.8.',
-        data: { cve: 'CVE-2023-4911', cvss: 9.8, service: 'glibc-ld.so', severity: 'CRITICAL' },
-      },
-      {
-        level: 'DEBUG',
-        source: 'WailsBridge',
-        msg: 'Heartbeat response received from background sentinel poller. Payload size: 488 bytes.',
-        data: { cycleSec: 5, bytes: 488 },
-      },
-    ];
-    const pick = testCases[Math.floor(Math.random() * testCases.length)];
-    logger.addLog(pick.level, pick.source, pick.msg, pick.data);
-  };
-
   return (
     <div className="debug-container">
       {/* Top Header */}
@@ -186,7 +167,7 @@ export default function DebugLogs() {
             onClick={handleCopy}
             title="Copy logs formatted as text to clipboard"
           >
-            <Icon name="add" />
+            <Icon name="content_copy" />
             <span>{copied ? 'COPIED!' : 'COPY LOGS'}</span>
           </button>
 
@@ -196,18 +177,8 @@ export default function DebugLogs() {
             onClick={handleExportJson}
             title="Export all logs as JSON payload"
           >
-            <Icon name="radar" />
+            <Icon name="download" />
             <span>EXPORT JSON</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn--dark"
-            onClick={handleSimulateLog}
-            title="Inject simulated diagnostics entry"
-          >
-            <Icon name="add" />
-            <span>SIMULATE EVENT</span>
           </button>
 
           <button
@@ -227,8 +198,11 @@ export default function DebugLogs() {
         <div className="debug-diag-item">
           <span className="debug-pulse-dot" />
           <span className="debug-diag-label">Core Daemon:</span>
-          <span className={`debug-diag-value ${statusError ? 'debug-diag-value--error' : 'debug-diag-value--ok'}`}>
-            {statusError ? 'DISCONNECTED (HTTP 502)' : 'ACTIVE (ONLINE)'}
+          <span
+            className={`debug-diag-value ${statusError ? 'debug-diag-value--error' : status ? 'debug-diag-value--ok' : ''}`}
+            title={statusError ?? undefined}
+          >
+            {statusError ? 'DISCONNECTED' : status ? 'ACTIVE (ONLINE)' : 'CONNECTING…'}
           </span>
         </div>
 
@@ -264,7 +238,7 @@ export default function DebugLogs() {
         <div className="debug-diag-item">
           <span className="debug-diag-label">Uptime:</span>
           <span className="debug-diag-value">
-            {status ? `${status.uptime_seconds}s` : '—'}
+            {status ? formatUptime(status.uptime_seconds) : '—'}
           </span>
         </div>
 
@@ -272,9 +246,16 @@ export default function DebugLogs() {
 
         <div className="debug-diag-item">
           <span className="debug-diag-label">Transport:</span>
-          <span className="debug-diag-value">WAILS V2 IPC</span>
+          <span className="debug-diag-value">{isWailsApp() ? 'WAILS IPC' : 'HTTP API'}</span>
         </div>
       </div>
+
+      {syncError && (
+        <div className="debug-sync-error" role="alert">
+          <Icon name="report" />
+          <span>{syncError}</span>
+        </div>
+      )}
 
       {/* Controls: Search, Level pills, Source filter */}
       <div className="debug-controls">

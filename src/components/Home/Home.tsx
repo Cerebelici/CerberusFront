@@ -15,7 +15,6 @@ import type { PostureReportDTO, ServiceDTO, VulnerabilityDTO } from '../../api/t
 import { useSystemStatus } from '../../state/useSystemStatus';
 import { apiRequest } from '../../api/client';
 import type { ScanType } from '../scan';
-import timelineMockJson from '../../../timelinemock3.json?raw';
 import { Icon } from '../Icon/Icon';
 
 type VulnerabilityStat = {
@@ -29,9 +28,6 @@ type ScanWidgetsInfo = {
   route: string;
   time: string;
 };
-
-// Timeline data source toggle: set to false to use live API, true for static mock
-const use_mock_data = false;
 
 const PLACEHOLDER = '-';
 
@@ -99,10 +95,6 @@ async function getTimeline(signal?: AbortSignal): Promise<NetworkData> {
   });
 }
 
-function getMockTimeline(): NetworkData {
-  return parseTimeline(JSON.parse(timelineMockJson) as unknown);
-}
-
 type TimelineLoadState =
   | { status: 'loading' }
   | { status: 'ready'; data: NetworkData }
@@ -116,7 +108,7 @@ function TimelineWidget({ blocked, blockedError }: { blocked: boolean; blockedEr
 
     const controller = new AbortController();
 
-    (use_mock_data ? Promise.resolve(getMockTimeline()) : getTimeline(controller.signal))
+    getTimeline(controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           setState({ status: 'ready', data });

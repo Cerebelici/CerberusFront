@@ -1,12 +1,11 @@
+import { apiRequest } from '../api/client';
+import { isRecord } from '../api/validators';
+
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
 export type LogSource =
-  | 'Daemon'
   | 'DiscoveryScanner'
   | 'VulnEngine'
-  | 'NmapWrapper'
-  | 'WailsBridge'
-  | 'ApiServer'
   | 'Frontend'
   | 'System';
 
@@ -17,41 +16,70 @@ export interface LogEntry {
   level: LogLevel;
   source: LogSource | string;
   message: string;
-  data?: any;
+  data?: unknown;
+}
+
+/** One line of the daemon log (GET /api/logs, desktop event "cerberus:log"). */
+interface BackendLogEntry {
+  seq: number;
+  timestamp: string;
+  level: LogLevel;
+  source: string;
+  message: string;
 }
 
 type LogListener = (entry: LogEntry, allLogs: LogEntry[]) => void;
 
+const LOG_LEVELS: readonly LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+
+function isBackendLogEntry(value: unknown): value is BackendLogEntry {
+  return (
+    isRecord(value) &&
+    typeof value.seq === 'number' &&
+    typeof value.timestamp === 'string' &&
+    typeof value.level === 'string' &&
+    (LOG_LEVELS as readonly string[]).includes(value.level) &&
+    typeof value.source === 'string' &&
+    typeof value.message === 'string'
+  );
+}
+
+function parseBackendLogs(body: unknown): BackendLogEntry[] {
+  if (!isRecord(body) || !Array.isArray(body.logs)) {
+    throw new TypeError('Invalid logs payload');
+  }
+  return body.logs.filter(isBackendLogEntry);
+}
+
+function stringify(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value instanceof Error) return value.message;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 class LoggerService {
   private logs: LogEntry[] = [];
   private listeners: Set<LogListener> = new Set();
-  private maxLogs = 1000;
+  private maxLogs = 2000;
   private isIntercepting = false;
-  private knownScanKeys = new Set<string>();
+  /** Daemon lines already in the buffer, keyed by sequence number and timestamp. */
+  private seenBackendLines = new Set<string>();
 
   constructor() {
-    this.seedInitialLogs();
     this.initConsoleInterception();
-    this.initWailsEvents();
+    this.initDesktopLogEvents();
   }
 
-  private initWailsEvents() {
-    if (typeof window !== 'undefined' && (window as any).runtime?.EventsOn) {
-      try {
-        (window as any).runtime.EventsOn('cerberus:log', (entry: any) => {
-          if (entry && typeof entry === 'object') {
-            this.addLog(
-              entry.level || 'INFO',
-              entry.source || 'Daemon',
-              entry.message || String(entry),
-              entry.data
-            );
-          }
-        });
-      } catch (err) {
-        // Wails runtime events not active in browser preview mode
-      }
-    }
+  /** Desktop app: the daemon pushes every new log line as a "cerberus:log" event. */
+  private initDesktopLogEvents() {
+    if (typeof window === 'undefined' || !window.runtime?.EventsOn) return;
+    window.runtime.EventsOn('cerberus:log', (entry: unknown) => {
+      if (isBackendLogEntry(entry)) this.ingestBackendLogs([entry]);
+    });
   }
 
   private formatDisplayTime(date: Date): string {
@@ -63,66 +91,9 @@ class LoggerService {
     return `${h}:${m}:${s}.${ms}`;
   }
 
-  private seedInitialLogs() {
-    const now = new Date();
-    const iso = now.toISOString();
-
-    this.logs.push(
-      {
-        id: 'init-1',
-        timestamp: new Date(now.getTime() - 2400).toISOString(),
-        displayTime: this.formatDisplayTime(new Date(now.getTime() - 2400)),
-        level: 'INFO',
-        source: 'Daemon',
-        message: 'Cerberus Sentinel security core initializing...',
-        data: { pid: 4892, arch: 'arm64', mode: 'sentinel-soc' },
-      },
-      {
-        id: 'init-2',
-        timestamp: new Date(now.getTime() - 2100).toISOString(),
-        displayTime: this.formatDisplayTime(new Date(now.getTime() - 2100)),
-        level: 'DEBUG',
-        source: 'WailsBridge',
-        message: 'IPC channel established. Native runtime bindings ready.',
-        data: { transport: 'wails-v2-ipc', target: 'localhost' },
-      },
-      {
-        id: 'init-3',
-        timestamp: new Date(now.getTime() - 1700).toISOString(),
-        displayTime: this.formatDisplayTime(new Date(now.getTime() - 1700)),
-        level: 'INFO',
-        source: 'DiscoveryScanner',
-        message: 'Network interface bound. Scanning engine primed.',
-        data: { iface: 'en0', autoMode: true },
-      },
-      {
-        id: 'init-4',
-        timestamp: new Date(now.getTime() - 1200).toISOString(),
-        displayTime: this.formatDisplayTime(new Date(now.getTime() - 1200)),
-        level: 'INFO',
-        source: 'VulnEngine',
-        message: 'Vulnerability database feed verified (CVSS 3.1 & vulners.nse rules).',
-      },
-      {
-        id: 'init-5',
-        timestamp: iso,
-        displayTime: this.formatDisplayTime(now),
-        level: 'INFO',
-        source: 'System',
-        message: 'Cerberus Dashboard ready. Telemetry streaming active.',
-      }
-    );
-  }
-
-  public addLog(
-    level: LogLevel,
-    source: LogSource | string,
-    message: string,
-    data?: any
-  ): LogEntry {
-    const date = new Date();
-    const entry: LogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+  private createEntry(level: LogLevel, source: string, message: string, date: Date, id: string, data?: unknown): LogEntry {
+    return {
+      id,
       timestamp: date.toISOString(),
       displayTime: this.formatDisplayTime(date),
       level,
@@ -130,84 +101,74 @@ class LoggerService {
       message,
       data,
     };
+  }
 
+  private push(entry: LogEntry) {
     this.logs.push(entry);
-    if (this.logs.length > this.maxLogs) {
-      this.logs.shift();
-    }
+    this.trim();
+  }
 
+  private trim() {
+    if (this.logs.length > this.maxLogs) {
+      this.logs.splice(0, this.logs.length - this.maxLogs);
+    }
+  }
+
+  public addLog(
+    level: LogLevel,
+    source: LogSource | string,
+    message: string,
+    data?: unknown
+  ): LogEntry {
+    const date = new Date();
+    const entry = this.createEntry(level, source, message, date, `ui-${date.getTime()}-${Math.random().toString(36).substring(2, 7)}`, data);
+    this.push(entry);
     this.notify(entry);
     return entry;
   }
 
-  public debug(source: LogSource | string, message: string, data?: any) {
+  public debug(source: LogSource | string, message: string, data?: unknown) {
     return this.addLog('DEBUG', source, message, data);
   }
 
-  public info(source: LogSource | string, message: string, data?: any) {
+  public info(source: LogSource | string, message: string, data?: unknown) {
     return this.addLog('INFO', source, message, data);
   }
 
-  public warn(source: LogSource | string, message: string, data?: any) {
+  public warn(source: LogSource | string, message: string, data?: unknown) {
     return this.addLog('WARN', source, message, data);
   }
 
-  public error(source: LogSource | string, message: string, data?: any) {
+  public error(source: LogSource | string, message: string, data?: unknown) {
     return this.addLog('ERROR', source, message, data);
   }
 
-  public ingestBackendScan(scan: {
-    id: number;
-    scan_type: string;
-    status: string;
-    target_spec: string;
-    hosts_found: number;
-    vulns_found: number;
-    duration_ms: number;
-    error_message?: string;
-    started_at: string;
-    completed_at?: string | null;
-  }) {
-    const key = `${scan.id}-${scan.status}`;
-    if (this.knownScanKeys.has(key)) return;
-    this.knownScanKeys.add(key);
-
-    const isDiscovery = scan.scan_type === 'discovery';
-    const source: LogSource = isDiscovery ? 'DiscoveryScanner' : 'VulnEngine';
-
-    if (scan.status === 'running') {
-      this.addLog(
-        'INFO',
-        source,
-        `Nmap ${scan.scan_type} sweep initiated on target [${scan.target_spec}].`,
-        { scanId: scan.id, target: scan.target_spec, startedAt: scan.started_at }
-      );
-    } else if (scan.status === 'completed') {
-      const durationSec = (scan.duration_ms / 1000).toFixed(2);
-      const summary = isDiscovery
-        ? `${scan.hosts_found} active hosts discovered`
-        : `${scan.hosts_found} hosts audited, ${scan.vulns_found} CVEs detected`;
-
-      this.addLog(
-        'INFO',
-        source,
-        `Nmap ${scan.scan_type} sweep completed in ${durationSec}s. Result: ${summary}.`,
-        {
-          scanId: scan.id,
-          target: scan.target_spec,
-          durationMs: scan.duration_ms,
-          hosts: scan.hosts_found,
-          vulns: scan.vulns_found,
-        }
-      );
-    } else if (scan.status === 'failed') {
-      this.addLog(
-        'ERROR',
-        source,
-        `Nmap ${scan.scan_type} sweep failed on [${scan.target_spec}]: ${scan.error_message || 'Process error'}`,
-        { scanId: scan.id, target: scan.target_spec, error: scan.error_message }
-      );
+  /**
+   * Adds daemon log lines that are not in the buffer yet, with their backend timestamps.
+   * History and live events can arrive in any order, so the buffer is kept in time order.
+   */
+  public ingestBackendLogs(entries: readonly BackendLogEntry[]) {
+    let last: LogEntry | null = null;
+    for (const e of entries) {
+      // The timestamp makes the key unique across daemon restarts, which restart the sequence.
+      const key = `${e.seq}@${e.timestamp}`;
+      if (this.seenBackendLines.has(key)) continue;
+      this.seenBackendLines.add(key);
+      const date = new Date(e.timestamp);
+      last = this.createEntry(e.level, e.source, e.message, Number.isNaN(date.getTime()) ? new Date() : date, `daemon-${key}`);
+      this.logs.push(last);
     }
+    if (!last) return;
+
+    this.logs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    this.trim();
+    this.notify(last);
+  }
+
+  /** Loads the daemon log kept by the backend (GET /api/logs or the desktop GetLogs call). */
+  public async syncBackendLogs(signal?: AbortSignal): Promise<void> {
+    const entries = await apiRequest('/api/logs', { signal, resource: 'daemon log', parse: parseBackendLogs });
+    this.ingestBackendLogs(entries);
   }
 
   public getLogs(): LogEntry[] {
@@ -216,17 +177,10 @@ class LoggerService {
 
   public clear() {
     this.logs = [];
-    const date = new Date();
-    const resetEntry: LogEntry = {
-      id: `${Date.now()}-reset`,
-      timestamp: date.toISOString(),
-      displayTime: this.formatDisplayTime(date),
-      level: 'INFO',
-      source: 'System',
-      message: 'Log buffer cleared by operator.',
-    };
-    this.logs.push(resetEntry);
-    this.notify(resetEntry);
+    // Keep seenBackendLines, so a later sync does not bring the cleared lines back.
+    const entry = this.createEntry('INFO', 'System', 'Log buffer cleared by operator.', new Date(), `ui-${Date.now()}-reset`);
+    this.push(entry);
+    this.notify(entry);
   }
 
   public subscribe(listener: LogListener): () => void {
@@ -240,7 +194,7 @@ class LoggerService {
     for (const listener of this.listeners) {
       try {
         listener(entry, this.logs);
-      } catch (err) {
+      } catch {
         // Prevent subscriber errors from bubbling
       }
     }
@@ -255,30 +209,27 @@ class LoggerService {
     const originalWarn = console.warn;
     const originalError = console.error;
 
-    console.log = (...args: any[]) => {
+    console.log = (...args: unknown[]) => {
       originalLog.apply(console, args);
-      const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+      const msg = args.map(stringify).join(' ');
       if (!msg.includes('[vite]') && !msg.includes('Download the React DevTools')) {
         this.addLog('DEBUG', 'Frontend', msg);
       }
     };
 
-    console.info = (...args: any[]) => {
+    console.info = (...args: unknown[]) => {
       originalInfo.apply(console, args);
-      const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-      this.addLog('INFO', 'Frontend', msg);
+      this.addLog('INFO', 'Frontend', args.map(stringify).join(' '));
     };
 
-    console.warn = (...args: any[]) => {
+    console.warn = (...args: unknown[]) => {
       originalWarn.apply(console, args);
-      const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-      this.addLog('WARN', 'Frontend', msg);
+      this.addLog('WARN', 'Frontend', args.map(stringify).join(' '));
     };
 
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       originalError.apply(console, args);
-      const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-      this.addLog('ERROR', 'Frontend', msg);
+      this.addLog('ERROR', 'Frontend', args.map(stringify).join(' '));
     };
 
     window.addEventListener('error', (event) => {
@@ -290,7 +241,7 @@ class LoggerService {
     });
 
     window.addEventListener('unhandledrejection', (event) => {
-      this.addLog('ERROR', 'Frontend', `Unhandled Promise Rejection: ${String(event.reason)}`);
+      this.addLog('ERROR', 'Frontend', `Unhandled Promise Rejection: ${stringify(event.reason)}`);
     });
   }
 
@@ -311,4 +262,3 @@ class LoggerService {
 }
 
 export const logger = new LoggerService();
-

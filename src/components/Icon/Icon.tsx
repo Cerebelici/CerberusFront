@@ -20,6 +20,8 @@ export type IconName =
     | 'refresh'
     | 'report'
     | 'settings'
+    | 'content_copy'
+    | 'download'
 
 interface IconProps extends React.HTMLAttributes<HTMLSpanElement> {
   name: IconName;

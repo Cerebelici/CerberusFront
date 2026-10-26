@@ -134,21 +134,16 @@ Backend contract (SIEM_Home `internal/api/handlers.go`):
 | Status | Body | Meaning |
 |---|---|---|
 | `202` | `{"message", "status": "running", "scan_type"}` | Request handed to the scheduler worker |
-| `409` | `{"error", "status": "running", "scan_type"}` | A scan of that type is already running |
+| `409` | `{"error", "status": "conflict", "scan_type"}` | A scan of that type is already running or queued |
 | `503` | `{"error", "status": "unavailable", "scan_type"}` | No scheduler available |
 
 ---
 
 ## Timeline data source
 
-The Timeline widget's data binding lives in `src/components/Home/Home.tsx` and is deliberately separate from the API layer:
-
-```ts
-import timelineMockJson from '../../../timelinemock3.json?raw';
-const use_mock_data = true;   // true → timelinemock3.json, false → GET /api/timeline
-```
-
-The mock files (`timeline_mock.json`, `timeline_mock2.json`, `timelinemock3.json`) live at the repository root.
+The Timeline widget in `src/components/Home/Home.tsx` reads `GET /api/timeline` (desktop: `GetTimeline`).
+The "ALL" scope starts at the first scan in the returned window, so a new install shows its first
+minutes of data at full width instead of as a thin strip at the end of a 24-hour axis.
 
 ---
 
