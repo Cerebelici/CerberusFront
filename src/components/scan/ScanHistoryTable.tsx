@@ -8,6 +8,7 @@ import type { ScanLogDTO, ScanLogStatus, ScanLogType } from './scanTypes'
 import { Icon } from '../Icon/Icon'
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal'
 import { clearScanHistory } from '../../api/inventory'
+import { formatDuration } from './scanWatcher'
 
 interface ScanRow {
   id: number
@@ -36,14 +37,22 @@ function toScanRow(scan: ScanLogDTO): ScanRow {
 }
 
 const columns: TableColumn<ScanRow>[] = [
-  { key: 'id', label: 'ID', sortable: true, filter: { kind: 'number' } },
-  { key: 'status', label: 'Result', sortable: true, filter: { kind: 'text' } },
-  { key: 'scanType', label: 'Type', sortable: true, filter: { kind: 'text' } },
+  { key: 'id', label: 'ID', size: 'content', sortable: true, filter: { kind: 'number' } },
+  { key: 'status', label: 'Result', size: 'content', sortable: true, filter: { kind: 'text' } },
+  { key: 'scanType', label: 'Type', size: 'content', sortable: true, filter: { kind: 'text' } },
   { key: 'target', label: 'Target', filter: { kind: 'text' } },
-  { key: 'hostsFound', label: 'Hosts', sortable: true, filter: { kind: 'number' } },
-  { key: 'vulnsFound', label: 'Vulns', sortable: true, filter: { kind: 'number' } },
-  { key: 'durationMs', label: 'Duration (ms)', sortable: true, filter: { kind: 'number' } },
-  { key: 'startedAt', label: 'Started at', sortable: true, display: { kind: 'date' }, filter: { kind: 'date' } },
+  { key: 'hostsFound', label: 'Hosts', size: 'content', sortable: true, filter: { kind: 'number' } },
+  { key: 'vulnsFound', label: 'Vulns', size: 'content', sortable: true, filter: { kind: 'number' } },
+  {
+    key: 'durationMs',
+    label: 'Duration',
+    size: 'content',
+    sortable: true,
+    filter: { kind: 'number' },
+    // Running scans and scans closed after a crash have no measured duration.
+    render: (value, row) => (row.status === 'running' || !value ? '—' : formatDuration(Number(value))),
+  },
+  { key: 'startedAt', label: 'Started at', size: 'content', sortable: true, display: { kind: 'date' }, filter: { kind: 'date' } },
   { key: 'error', label: 'Error', filter: { kind: 'text' } },
 ]
 
@@ -122,6 +131,7 @@ function ScanHistoryTable({ scans, loading, error, onCleared }: ScanHistoryTable
             : {
                 status: 'ready' as const,
                 rows: table.rows,
+                emptyMessage: table.filters.length > 0 ? 'No scans match the active filters.' : 'No scans recorded yet.',
                 getRowKey: (row: ScanRow) => row.id,
                 sort: table.sort,
                 onSortChange: table.changeSort,

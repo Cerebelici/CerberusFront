@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import "./TableData.css"
 import StatusIndicator from "../StatusIndicator/StatusIndicator"
 import RiskScore from "../RiskScore/RiskScore"
+import { formatDate } from "../../uptime"
 import type { TableColumn, TableSort } from "./TableTypes"
 
 // export type { FilterConfig, TableColumn, TableDisplay, TableFilterRule, TableSort } from "./TableTypes"
@@ -111,13 +112,15 @@ function TableRows<T extends object>({
                                 ? <RiskScore score={value} />
                                 : displayValue
                         } else if (column.display?.kind === "date" && value != null) {
+                            // Same short format as the rest of the app; the hover shows the full time.
                             const timestamp = Date.parse(displayValue)
-                            const formattedValue = Number.isNaN(timestamp)
+                            const fullValue = Number.isNaN(timestamp)
                                 ? displayValue
                                 : new Date(timestamp).toLocaleString()
+                            const shortValue = Number.isNaN(timestamp) ? displayValue : formatDate(displayValue)
                             content = (
-                                <span className="table__value-container" data-full-value={formattedValue}>
-                                    <span className="table__row__value">{formattedValue}</span>
+                                <span className="table__value-container" data-full-value={fullValue}>
+                                    <span className="table__row__value">{shortValue}</span>
                                 </span>
                             )
                         } else {
@@ -132,7 +135,7 @@ function TableRows<T extends object>({
                         }
 
                         return (
-                            <div className="table__cell" key={String(column.key)}>
+                            <div className={`table__cell${column.size ? " table__cell--fit" : ""}`} key={String(column.key)}>
                                 {content}
                             </div>
                         )

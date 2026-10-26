@@ -7,7 +7,8 @@
 
 .vulnerabilities-tab__box{
     display: flex;
-    gap: 3.2rem;
+    flex-wrap: wrap;
+    gap: 2.4rem;
 }
 
 .vulnerabilities-tab__column{
@@ -17,7 +18,14 @@
 
 .vulnerabilities-tab__column--table{
     gap: 1.6rem;
-    flex-grow: 1;
+    flex: 1 1 0;
+    /* The table keeps its values whole; on very narrow windows the panel moves below it. */
+    min-width: max-content;
+}
+
+.vulnerabilities-tab__column--panel{
+    flex: 0 0 auto;
+    width: clamp(28rem, 30%, 38rem);
 }
 
 .table-vulnerability-container{

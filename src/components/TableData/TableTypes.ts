@@ -12,6 +12,12 @@ export type TableDisplay =
 export interface TableColumn<T> {
   key: keyof T
   label: string
+  /**
+   * How the column takes width. By default it gets an even share and long text is cut with a
+   * fade (hover shows it all). "content" always fits its values: use it for values with a
+   * known short length (status dots, IPs, MACs, dates, counts, action buttons).
+   */
+  size?: "content"
   sortable?: boolean
   filter?: FilterConfig
   display?: TableDisplay

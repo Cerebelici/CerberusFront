@@ -58,25 +58,28 @@ function Devices() {
       {
         key: "status",
         label: "Status",
+        size: "content",
         display: { kind: "status", activeValues: ["up"] },
         filter: { kind: "status", options: ["up", "down"] },
       },
       { key: "hostname", label: "Device", sortable: true, filter: { kind: "text" } },
       { key: "vendor", label: "Vendor", sortable: true, filter: { kind: "text" } },
-      { key: "ip", label: "IP", filter: { kind: "text" } },
+      { key: "ip", label: "IP", size: "content", filter: { kind: "text" } },
       { key: "mac", label: "MAC address", filter: { kind: "text" } },
       {
         key: "riskScore",
         label: "Score",
+        size: "content",
         sortable: true,
         display: { kind: "risk-score" },
         filter: { kind: "number" },
       },
-      { key: "vulnerabilitiesCount", label: "Issues", sortable: true, filter: { kind: "number" } },
-      { key: "servicesCount", label: "Services", sortable: true, filter: { kind: "number" } },
+      { key: "vulnerabilitiesCount", label: "Issues", size: "content", sortable: true, filter: { kind: "number" } },
+      { key: "servicesCount", label: "Services", size: "content", sortable: true, filter: { kind: "number" } },
       {
         key: "lastSeen",
         label: "Last seen",
+        size: "content",
         sortable: true,
         display: { kind: "date" },
         filter: { kind: "date" },
@@ -84,6 +87,7 @@ function Devices() {
       {
         key: "actions",
         label: "Action",
+        size: "content",
         render: (_, device) => (
           <button
             type="button"
@@ -202,6 +206,11 @@ function Devices() {
         <TableData
           status="ready"
           rows={table.rows}
+          emptyMessage={
+            table.filters.length > 0
+              ? "No devices match the active filters."
+              : "No devices found yet. Discovery scans the network at start and then on its schedule."
+          }
           columns={columns}
           getRowKey={(device) => device.id}
           sort={table.sort}

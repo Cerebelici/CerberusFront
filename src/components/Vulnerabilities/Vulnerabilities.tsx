@@ -46,14 +46,16 @@ const columns: TableColumn<Vulnerability>[] = [
   {
     key: "status",
     label: "Status",
+    size: "content",
     display: { kind: "status", activeValues: ["open"] },
     filter: { kind: "status", options: ["open", "resolved"] },
   },
-  { key: "device_ip", label: "Device", filter: { kind: "text" } },
-  { key: "cve_id", label: "CVE ID", sortable: true, filter: { kind: "text" } },
+  { key: "device_ip", label: "Device", size: "content", filter: { kind: "text" } },
+  { key: "cve_id", label: "CVE ID", size: "content", sortable: true, filter: { kind: "text" } },
   {
     key: "score",
     label: "Score",
+    size: "content",
     sortable: true,
     display: { kind: "risk-score" },
     filter: { kind: "number" },
@@ -61,6 +63,7 @@ const columns: TableColumn<Vulnerability>[] = [
   {
     key: "detected_at",
     label: "Detected at",
+    size: "content",
     sortable: true,
     display: { kind: "date" },
     filter: { kind: "date" },
@@ -109,6 +112,9 @@ function Vulnerabilities() {
                   : {
                       status: "ready" as const,
                       rows: table.rows,
+                      emptyMessage: table.filters.length > 0
+                        ? "No vulnerabilities match the active filters."
+                        : "No vulnerabilities found.",
                       getRowKey: (vuln: Vulnerability) => vuln.id,
                       sort: table.sort,
                       onSortChange: (sort) => {

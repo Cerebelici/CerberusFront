@@ -42,6 +42,7 @@ const columns: TableColumn<Service>[] = [
   {
     key: "state",
     label: "Status",
+    size: "content",
     display: { kind: "status", activeValues: ["open"] },
     filter: { kind: "status", options: ["open", "filtered", "closed"] },
   },
@@ -88,6 +89,9 @@ function Services() {
             : {
                 status: "ready" as const,
                 rows: table.rows,
+                emptyMessage: table.filters.length > 0
+                  ? "No services match the active filters."
+                  : "No services recorded yet. They appear after the vulnerability scan of a device.",
                 getRowKey: (service: Service) => service.id,
                 sort: table.sort,
                 onSortChange: table.changeSort,

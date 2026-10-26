@@ -35,6 +35,10 @@ export function summarizeScan(scan: ScanLogDTO): string {
   if (scan.status === 'running') {
     return `Scan #${scan.id} running since ${new Date(scan.started_at).toLocaleTimeString()} (${scan.target_spec})`
   }
+  if (scan.status === 'failed') {
+    // A failed scan has no meaningful duration or counts; its error says what happened.
+    return `Scan #${scan.id} failed: ${scan.error_message || 'no error message reported'} (${scan.target_spec})`
+  }
   const hosts = `${scan.hosts_found} host${scan.hosts_found === 1 ? '' : 's'}`
   const findings = scan.scan_type === 'discovery' ? '' : `, ${scan.vulns_found} vulnerabilit${scan.vulns_found === 1 ? 'y' : 'ies'}`
   return `Scan #${scan.id} ${scan.status} in ${formatDuration(scan.duration_ms)}: ${hosts}${findings} (${scan.target_spec})`

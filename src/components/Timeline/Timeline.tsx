@@ -50,6 +50,25 @@ interface NetworkTimelineProps {
 
 type ZoomPreset = '1h' | '4h' | '8h' | '24h' | 'all';
 
+// Space kept before the first data point so its tick is not drawn on the axis edge.
+const DATA_START_PADDING_RATIO = 0.03;
+const MIN_VIEW_SPAN_MS = 60_000;
+
+/**
+ * The backend answers for a fixed window (24 h by default). A new install has only minutes of
+ * data in it, so the axis starts at the first scan or period instead of at the window start.
+ */
+function dataStart(data: NetworkData, windowStart: number, windowEnd: number): number {
+  const times = [
+    ...data.scan_ticks.map((tick) => Date.parse(tick.timestamp)),
+    ...data.devices.flatMap((device) => device.periods.map((period) => Date.parse(period.started_at))),
+  ].filter((time) => Number.isFinite(time) && time >= windowStart && time < windowEnd);
+  if (times.length === 0) return windowStart;
+  const earliest = Math.min(...times);
+  const padding = Math.max((windowEnd - earliest) * DATA_START_PADDING_RATIO, MIN_VIEW_SPAN_MS / 2);
+  return Math.max(windowStart, Math.min(earliest - padding, windowEnd - MIN_VIEW_SPAN_MS));
+}
+
 export const NetworkTimelineSkeleton: React.FC = () => (
   <div className="net-timeline-container timeline-skeleton" role="status" aria-label="Loading timeline">
     <div className="net-timeline-controls" aria-hidden="true">
@@ -97,8 +116,8 @@ export const NetworkTimelineSkeleton: React.FC = () => (
 );
 
 export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
-  const globalStart = new Date(data.time_window.from).getTime();
   const globalEnd = new Date(data.time_window.to).getTime();
+  const globalStart = dataStart(data, new Date(data.time_window.from).getTime(), globalEnd);
   const totalDuration = globalEnd - globalStart;
 
   // Zoom & Viewport state
@@ -344,7 +363,7 @@ export const NetworkTimeline: React.FC<NetworkTimelineProps> = ({ data }) => {
                 <span className="device-label-text" title={primaryLabel}>
                   {primaryLabel}
                 </span>
-                <span className="device-ip-sub">({device.ip})</span>
+                {primaryLabel !== device.ip && <span className="device-ip-sub">({device.ip})</span>}
               </div>
             );
           })}
