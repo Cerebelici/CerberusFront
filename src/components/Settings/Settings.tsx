@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './Settings.css';
 import { Icon } from '../Icon/Icon';
 import { ConfirmModal } from '../ConfirmModal/ConfirmModal';
 import { clearAllDevices, clearScanHistory } from '../../api/inventory';
+import { errorMessage, isAbortError } from '../../api/client';
+import { isWailsApp } from '../../api/wailsBridge';
+import { useSystemStatus } from '../../state/useSystemStatus';
 import {
   fetchSettings,
   saveSettings,
@@ -10,7 +13,16 @@ import {
   type AppSettingsDTO,
   type NetworkInterfaceDTO,
   type CapabilitiesDTO,
+  type SettingsResponseDTO,
 } from '../../api/settings';
+
+const MIN_DISCOVERY_INTERVAL_SEC = 30;
+const MIN_VULN_INTERVAL_SEC = 60;
+
+function parseInterval(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
@@ -20,54 +32,68 @@ export default function Settings() {
   const [isResetDevicesModalOpen, setIsResetDevicesModalOpen] = useState(false);
   const [isClearScansModalOpen, setIsClearScansModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  // Side nav badges and scan times come from the shared status poller.
+  const { refresh: refreshStatus } = useSystemStatus();
 
-  const [settings, setSettings] = useState<AppSettingsDTO>({
-    network_mode: 'auto',
-    selected_interface: '',
-    custom_network_cidr: '',
-    effective_cidr: '',
-    effective_exclude_ip: '',
-    scan_ports: '',
-    discovery_interval_sec: 300,
-    vuln_interval_sec: 1800,
-    unprivileged_mode: false,
-    nmap_path: '',
-  });
+  // Actions at the bottom of the page report at the top; bring the message into view.
+  useEffect(() => {
+    if (feedback) feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [feedback]);
+
+  // Every value comes from the backend; nothing is shown until it answers.
+  const [settings, setSettings] = useState<AppSettingsDTO | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [interfaces, setInterfaces] = useState<NetworkInterfaceDTO[]>([]);
   const [capabilities, setCapabilities] = useState<CapabilitiesDTO | null>(null);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const res = await fetchSettings();
-      setSettings(res.settings);
-      setInterfaces(res.interfaces);
-      setCapabilities(res.capabilities);
-    } catch (err: unknown) {
-      setFeedback({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Could not load configuration',
+  const applyResponse = useCallback((res: SettingsResponseDTO) => {
+    setSettings(res.settings);
+    setInterfaces(res.interfaces ?? []);
+    setCapabilities(res.capabilities);
+    setLoadError(null);
+  }, []);
+
+  const loadData = useCallback((signal?: AbortSignal) => {
+    fetchSettings(signal)
+      .then(applyResponse)
+      .catch((err: unknown) => {
+        if (!isAbortError(err)) setLoadError(errorMessage(err, 'Could not load configuration'));
+      })
+      .finally(() => {
+        if (!signal?.aborted) setLoading(false);
       });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [applyResponse]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [loadData]);
+
+  const handleRefresh = () => {
+    setLoading(true);
+    setFeedback(null);
     loadData();
-  }, []);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!settings) return;
+    if (settings.discovery_interval_sec < MIN_DISCOVERY_INTERVAL_SEC || settings.vuln_interval_sec < MIN_VULN_INTERVAL_SEC) {
+      setFeedback({
+        type: 'error',
+        message: `Discovery interval must be at least ${MIN_DISCOVERY_INTERVAL_SEC} s and vulnerability interval at least ${MIN_VULN_INTERVAL_SEC} s.`,
+      });
+      return;
+    }
     try {
       setSaving(true);
       setFeedback(null);
-      const res = await saveSettings(settings);
-      setSettings(res.settings);
-      setInterfaces(res.interfaces);
-      setCapabilities(res.capabilities);
-      setFeedback({ type: 'success', message: 'Settings saved and engine hot-reloaded successfully!' });
+      applyResponse(await saveSettings(settings));
+      refreshStatus();
+      setFeedback({ type: 'success', message: 'Settings saved. A discovery scan of the target network has started.' });
     } catch (err: unknown) {
       setFeedback({
         type: 'error',
@@ -84,7 +110,8 @@ export default function Settings() {
       setFeedback(null);
       const caps = await setupNmapPrivileges();
       setCapabilities(caps);
-      setSettings((prev) => ({
+      refreshStatus();
+      setSettings((prev) => prev && ({
         ...prev,
         unprivileged_mode: caps.effective_mode !== 'privileged',
         nmap_path: caps.nmap_path || prev.nmap_path,
@@ -109,6 +136,7 @@ export default function Settings() {
       setFeedback(null);
       const res = await clearAllDevices();
       setIsResetDevicesModalOpen(false);
+      refreshStatus();
       setFeedback({
         type: 'success',
         message: `Network inventory reset successfully! Deleted ${res.deleted} tracked devices. Ready for clean discovery scan.`,
@@ -129,6 +157,7 @@ export default function Settings() {
       setFeedback(null);
       const res = await clearScanHistory();
       setIsClearScansModalOpen(false);
+      refreshStatus();
       setFeedback({
         type: 'success',
         message: `Cleared ${res.deleted} scan execution logs.`,
@@ -153,6 +182,28 @@ export default function Settings() {
     );
   }
 
+  if (!settings) {
+    return (
+      <div className="settings-container">
+        <div className="settings-header">
+          <div className="settings-title">
+            <Icon name="settings" /> SYSTEM & NETWORK CONFIGURATION
+          </div>
+          <div className="settings-header-actions">
+            <button type="button" className="btn btn--dark" onClick={handleRefresh}>
+              <Icon name="refresh" />
+              <span>RETRY</span>
+            </button>
+          </div>
+        </div>
+        <div className="settings-feedback settings-feedback--error" role="alert">
+          <Icon name="report" />
+          {loadError ?? 'Could not load configuration'}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="settings-container">
       <form onSubmit={handleSave}>
@@ -164,7 +215,7 @@ export default function Settings() {
             <button
               type="button"
               className="btn btn--dark"
-              onClick={loadData}
+              onClick={handleRefresh}
               disabled={saving || elevating}
             >
               <Icon name="refresh" />
@@ -182,7 +233,7 @@ export default function Settings() {
         </div>
 
         {feedback && (
-          <div className={`settings-feedback settings-feedback--${feedback.type}`}>
+          <div ref={feedbackRef} className={`settings-feedback settings-feedback--${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}>
             <Icon name={feedback.type === 'success' ? 'refresh' : 'report'} />
             {feedback.message}
           </div>
@@ -338,10 +389,10 @@ export default function Settings() {
               <span className="settings-label">Host Discovery Scan Interval (seconds)</span>
               <input
                 type="number"
-                min="30"
+                min={MIN_DISCOVERY_INTERVAL_SEC}
                 className="settings-input"
-                value={settings.discovery_interval_sec}
-                onChange={(e) => setSettings({ ...settings, discovery_interval_sec: parseInt(e.target.value, 10) || 300 })}
+                value={settings.discovery_interval_sec || ''}
+                onChange={(e) => setSettings({ ...settings, discovery_interval_sec: parseInterval(e.target.value) })}
               />
             </div>
 
@@ -349,10 +400,10 @@ export default function Settings() {
               <span className="settings-label">Vulnerability Audit Interval (seconds)</span>
               <input
                 type="number"
-                min="60"
+                min={MIN_VULN_INTERVAL_SEC}
                 className="settings-input"
-                value={settings.vuln_interval_sec}
-                onChange={(e) => setSettings({ ...settings, vuln_interval_sec: parseInt(e.target.value, 10) || 1800 })}
+                value={settings.vuln_interval_sec || ''}
+                onChange={(e) => setSettings({ ...settings, vuln_interval_sec: parseInterval(e.target.value) })}
               />
             </div>
           </div>
@@ -386,16 +437,19 @@ export default function Settings() {
               </div>
             </div>
 
-            <button
-              type="button"
-              className="btn btn--light"
-              style={{ width: '100%', justifyContent: 'center', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
-              onClick={handleElevatePrivileges}
-              disabled={elevating || saving}
-            >
-              <Icon name={elevating ? 'progress_activity' : 'report'} />
-              {elevating ? 'REQUESTING OS ELEVATION...' : 'GRANT ROOT / ADMIN PRIVILEGES'}
-            </button>
+            {/* The OS elevation dialog only exists in the desktop app. */}
+            {isWailsApp() && (
+              <button
+                type="button"
+                className="btn btn--light"
+                style={{ width: '100%', justifyContent: 'center', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
+                onClick={handleElevatePrivileges}
+                disabled={elevating || saving}
+              >
+                <Icon name={elevating ? 'progress_activity' : 'report'} />
+                {elevating ? 'REQUESTING OS ELEVATION...' : 'GRANT ROOT / ADMIN PRIVILEGES'}
+              </button>
+            )}
           </div>
 
           {/* 5. Database & Network Maintenance */}

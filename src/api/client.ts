@@ -1,5 +1,5 @@
 import { env } from '../config/env'
-import { isWailsApp, dispatchWailsIpc } from './wailsBridge'
+import { isWailsApp, dispatchWailsIpc, IpcHttpError } from './wailsBridge'
 
 export type ApiErrorKind = 'http' | 'network' | 'timeout' | 'invalid-response'
 
@@ -33,7 +33,7 @@ export function buildApiUrl(path: string): string {
   return `${env.apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`
 }
 
-type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export interface ApiRequestOptions<T> {
   /** Validates/narrows the decoded JSON. Throw to reject the payload. */
@@ -100,6 +100,13 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
         }
       } catch (err: unknown) {
         if (err instanceof ApiError) throw err
+        if (err instanceof IpcHttpError) {
+          throw new ApiError(`Could not ${action} ${resource}: ${err.message}`, 'http', err.status, err.body)
+        }
+        // Wails rejects a Go error with its message as a plain string.
+        if (typeof err === 'string' && err.trim()) {
+          throw new ApiError(`Could not ${action} ${resource}: ${err.trim()}`, 'http', null, { error: err.trim() })
+        }
         throw new ApiError(
           errorMessage(err, `Could not ${action} ${resource} via desktop IPC`),
           'network',

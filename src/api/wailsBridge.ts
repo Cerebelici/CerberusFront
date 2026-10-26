@@ -20,6 +20,7 @@ export interface WailsBridge {
   ClearScanHistory(): Promise<{ status: string; deleted: number }>;
   TriggerDiscovery(): Promise<unknown>;
   TriggerVulnerabilityScan(): Promise<unknown>;
+  GetLogs(): Promise<unknown>;
   GetSettings(): Promise<unknown>;
   UpdateSettings(req: unknown): Promise<unknown>;
   SetupNmapAndPrivileges(): Promise<unknown>;
@@ -32,7 +33,35 @@ declare global {
         Bridge?: WailsBridge;
       };
     };
+    runtime?: {
+      EventsOn?: (eventName: string, callback: (...data: unknown[]) => void) => () => void;
+    };
   }
+}
+
+/**
+ * Error thrown for an IPC result that the HTTP API would answer with a non-2xx status,
+ * so callers handle both transports the same way.
+ */
+export class IpcHttpError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = 'IpcHttpError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/** Trigger results with status "conflict" are the IPC form of HTTP 409. */
+function rejectConflict(result: unknown): unknown {
+  if (typeof result === 'object' && result !== null && 'status' in result && result.status === 'conflict') {
+    const message = 'error' in result && typeof result.error === 'string' ? result.error : 'A scan is already in progress';
+    throw new IpcHttpError(message, 409, result);
+  }
+  return result;
 }
 
 export function isWailsApp(): boolean {
@@ -142,13 +171,18 @@ export async function dispatchWailsIpc(
     }
   }
   if (cleanPath === '/api/scans/discovery/trigger' && method === 'POST') {
-    return await bridge.TriggerDiscovery();
+    return rejectConflict(await bridge.TriggerDiscovery());
   }
   if (cleanPath === '/api/scans/vulnerability/trigger' && method === 'POST') {
-    return await bridge.TriggerVulnerabilityScan();
+    return rejectConflict(await bridge.TriggerVulnerabilityScan());
   }
 
-  // 7. Settings
+  // 7. Daemon log
+  if (cleanPath === '/api/logs' && method === 'GET') {
+    return await bridge.GetLogs();
+  }
+
+  // 8. Settings
   if (cleanPath === '/api/settings' && method === 'GET') {
     return await bridge.GetSettings();
   }

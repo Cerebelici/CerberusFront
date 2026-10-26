@@ -55,7 +55,7 @@ export async function saveSettings(settings: AppSettingsDTO, signal?: AbortSigna
   return apiRequest('/api/settings', {
     resource: 'settings',
     action: 'save',
-    method: 'POST',
+    method: 'PUT',
     body: settings,
     parse: parseSettings,
     signal,
