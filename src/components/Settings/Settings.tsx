@@ -113,7 +113,6 @@ export default function Settings() {
       refreshStatus();
       setSettings((prev) => prev && ({
         ...prev,
-        unprivileged_mode: caps.effective_mode !== 'privileged',
         nmap_path: caps.nmap_path || prev.nmap_path,
       }));
       setFeedback({
@@ -363,17 +362,8 @@ export default function Settings() {
             <div className="settings-field">
               <span className="settings-label">Scan Socket Privilege Mode</span>
               <div className="settings-radio-group">
-                <div
-                  className={`settings-radio-pill ${!settings.unprivileged_mode ? 'active' : ''}`}
-                  onClick={() => setSettings({ ...settings, unprivileged_mode: false })}
-                >
-                  PRIVILEGED (SYN / RAW SOCKET)
-                </div>
-                <div
-                  className={`settings-radio-pill ${settings.unprivileged_mode ? 'active' : ''}`}
-                  onClick={() => setSettings({ ...settings, unprivileged_mode: true })}
-                >
-                  UNPRIVILEGED (TCP CONNECT)
+                <div className="settings-radio-pill active">
+                  PRIVILEGED (SYN / RAW SOCKET) &mdash; MANDATORY
                 </div>
               </div>
             </div>

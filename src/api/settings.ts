@@ -26,7 +26,6 @@ export interface AppSettingsDTO {
   scan_ports: string;
   discovery_interval_sec: number;
   vuln_interval_sec: number;
-  unprivileged_mode: boolean;
   nmap_path: string;
 }
 
