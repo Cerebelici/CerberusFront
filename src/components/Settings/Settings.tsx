@@ -406,7 +406,7 @@ export default function Settings() {
 
             <div className="settings-status-box">
               <div className="settings-status-row">
-                <span className="settings-status-key">Binary Location:</span>
+                <span className="settings-status-key">Nmap Engine Path:</span>
                 <span className="settings-status-val" style={{ wordBreak: 'break-all' }}>{capabilities?.nmap_path || 'Not Found'}</span>
               </div>
               <div className="settings-status-row">
