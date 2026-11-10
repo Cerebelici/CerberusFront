@@ -1,8 +1,15 @@
 # Cerberus Front
 
 Web dashboard for the **Cerberus Network Sentinel** ([SIEM_Home](https://github.com/Cerebelici/SIEM_Home)).
-React 19 + TypeScript + Vite. Every number on screen comes from the Sentinel REST API. Nothing is hardcoded,
-except the Timeline widget, which can be switched to mock data (see [Timeline data source](#timeline-data-source)).
+React 19 + TypeScript + Vite. In the desktop app every number on screen comes from the
+Sentinel daemon through **Wails IPC**; the logical `/api/...` paths below are routed to
+bridge methods by `src/api/wailsBridge.ts`. The daemon no longer exposes a REST UI API.
+
+There is no standalone browser backend anymore: use `wails dev` from the repository
+root. `npm run dev` alone starts the UI without data unless a Wails runtime is present.
+
+Nothing is hardcoded, except the Timeline widget, which can be switched to mock data
+(see [Timeline data source](#timeline-data-source)).
 
 | Page | Route | Data source |
 |---|---|---|
@@ -16,20 +23,18 @@ except the Timeline widget, which can be switched to mock data (see [Timeline da
 
 ## Quick start
 
-**Prerequisites:** Node.js 20.19+ or 22.12+ (required by Vite 8), plus a running Sentinel backend (port `8080` by default).
+**Prerequisites:** Node.js 20.19+ or 22.12+, the Wails CLI, and the platform toolchain.
+The daemon runs inside the desktop app.
 
 ```bash
-# 1. Backend (in the SIEM_Home repo). This example scans only this machine.
-CERBERUS_HOST=127.0.0.1 CERBERUS_SUBNET=127.0.0.1/32 go run ./cmd/sentinel
-
-# 2. Frontend (this repo)
-cp .env.example .env      # adjust if your backend is not on http://localhost:8080
-npm install
-npm run dev               # http://localhost:5173
+# From the repository root
+git submodule update --init --recursive
+wails dev
 ```
 
-During development the browser only talks to the Vite dev server. Vite proxies `/api/*` to `DEV_PROXY_TARGET`,
-so there is no CORS setup and the backend sees requests coming from loopback.
+`npm run dev` / `npm run build` are still useful for frontend-only checks. They cannot
+reach the daemon over HTTP because the UI API was removed; use `wails dev` for an
+end-to-end session.
 
 ### Scripts
 
@@ -48,11 +53,8 @@ All settings are documented in [`.env.example`](.env.example). `.env` is git-ign
 
 | Variable | Read by | Default | Purpose |
 |---|---|---|---|
-| `DEV_PROXY_TARGET` | `vite.config.ts` only | `http://localhost:8080` | Backend that `/api/*` is proxied to (dev and preview) |
 | `DEV_SERVER_HOST` | `vite.config.ts` only | `localhost` | Dev server bind address |
 | `DEV_SERVER_PORT` | `vite.config.ts` only | `5173` | Dev server port |
-| `VITE_API_BASE_URL` | browser | *(empty)* | Leave empty to use same-origin requests through the proxy. Set it (e.g. `http://localhost:8080`) only when serving the build without a proxy |
-| `VITE_API_KEY` | browser | *(empty)* | Sent as `X-API-Key` (must match `CERBERUS_API_KEY`). Only needed when the backend sees non-loopback requests. **Anything prefixed `VITE_` ends up in the JS bundle.** |
 | `VITE_API_TIMEOUT_MS` | browser | `10000` | Per-request timeout |
 | `VITE_STATUS_POLL_INTERVAL_MS` | browser | `30000` | `/api/status` polling while idle |
 | `VITE_SCAN_POLL_INTERVAL_MS` | browser | `3000` | Polling cadence while a scan is running |
@@ -71,8 +73,9 @@ src/
 ├── config/env.ts              # typed, validated access to import.meta.env (only place env is read)
 ├── vite-env.d.ts              # ImportMetaEnv typings
 ├── api/
-│   ├── client.ts              # apiRequest(): base URL, timeout, X-API-Key, ApiError, abort handling
-│   ├── endpoints.ts           # REST paths (keep in sync with SIEM_Home/openapi.yaml)
+│   ├── client.ts              # apiRequest(): logical IPC path dispatch, timeout, abort handling
+│   ├── endpoints.ts           # logical paths routed to Wails bridge methods
+│   ├── wailsBridge.ts         # Wails IPC contract and path-to-method router
 │   ├── types.ts               # DTOs mirroring SIEM_Home internal/model/models.go
 │   ├── validators.ts          # runtime payload guards
 │   ├── inventory.ts           # fetchDevices / fetchServices / fetchVulnerabilities
@@ -89,7 +92,7 @@ src/
 
 ### Shared status poller
 
-`<SystemStatusProvider>` (mounted in `main.tsx`) is the only component that polls `GET /api/status`. It polls every
+`<SystemStatusProvider>` (mounted in `main.tsx`) is the only component that polls `GetStatus` through IPC. It polls every
 `VITE_STATUS_POLL_INTERVAL_MS` when idle and every `VITE_SCAN_POLL_INTERVAL_MS` while a discovery or vulnerability scan is running.
 Each time it sees a running scan finish, it increments `scanGeneration`. Pages pass that value to `useApiResource`,
 so devices, services, vulnerabilities and the dashboard refetch automatically after a scan.
@@ -129,19 +132,23 @@ click ─▶ submitting ─┬─ 202 ─▶ queued ─▶ running (scan log row
 - The watch never ends silently. A vulnerability audit with no active devices, and a watch that exceeds
   `VITE_SCAN_WATCH_TIMEOUT_MS`, both end with an explicit message.
 
-Backend contract (SIEM_Home `internal/api/handlers.go`):
+Backend contract (`TriggerDiscovery` / `TriggerVulnerabilityScan` IPC methods):
 
-| Status | Body | Meaning |
+| `status` | Payload | Meaning |
 |---|---|---|
-| `202` | `{"message", "status": "running", "scan_type"}` | Request handed to the scheduler worker |
-| `409` | `{"error", "status": "conflict", "scan_type"}` | A scan of that type is already running or queued |
-| `503` | `{"error", "status": "unavailable", "scan_type"}` | No scheduler available |
+| `running` | `{"message", "status", "scan_type"}` | Request handed to the scheduler worker |
+| `conflict` | `{"error", "status", "scan_type"}` | A scan of that type is already running or queued |
+| `forbidden` | `{"error", "status", "scan_type"}` | Privilege elevation was refused |
+| `unavailable` | `{"error", "status", "scan_type"}` | No scheduler available |
+
+`wailsBridge.ts` converts `conflict` into a rejected promise so the UI shows the same
+message it used to show for HTTP 409.
 
 ---
 
 ## Timeline data source
 
-The Timeline widget in `src/components/Home/Home.tsx` reads `GET /api/timeline` (desktop: `GetTimeline`).
+The Timeline widget in `src/components/Home/Home.tsx` reads `GetTimeline` through IPC.
 The "ALL" scope starts at the first scan in the returned window, so a new install shows its first
 minutes of data at full width instead of as a thin strip at the end of a 24-hour axis.
 
@@ -149,15 +156,8 @@ minutes of data at full width instead of as a thin strip at the end of a 24-hour
 
 ## Verifying the integration
 
-```bash
-F=http://localhost:5173
-for p in status devices services vulnerabilities posture "scans?limit=5" timeline; do
-  curl -s -o /dev/null -w "/api/$p %{http_code}\n" "$F/api/$p"; done           # all 200
-curl -s -w ' [%{http_code}]\n' -X POST $F/api/scans/vulnerability/trigger      # 202
-curl -s -w ' [%{http_code}]\n' -X POST $F/api/scans/vulnerability/trigger      # 409 while the first one runs
-```
-
-In the UI, open **Scans** and click **Trigger discovery scan**. The button shows *Submitting…*, then a green
+Run `wails dev`, open the dashboard, and check that the status cards load and the Debug
+page shows daemon logs. Then open **Scans** and click **Trigger discovery scan**. The button shows *Submitting…*, then a green
 `Scan #N completed …` summary appears and the history table gains a row.
 
 ---
@@ -166,8 +166,8 @@ In the UI, open **Scans** and click **Trigger discovery scan**. The button shows
 
 | Symptom | Fix |
 |---|---|
-| Side nav shows "Could not reach the Cerberus API…" | Backend not running, or `DEV_PROXY_TARGET` points to the wrong host or port |
-| `vite` proxy logs `ECONNREFUSED 127.0.0.1:8080` | Same as above |
+| Side nav shows "Could not reach the Cerberus API…" | The app is not running inside Wails IPC (`wails dev`), or the daemon failed to start |
+| Daemon fails during startup | Check the Debug page log and the platform prerequisites in the root README |
 | `dyld: Library not loaded: …libsimdjson…` when running `npm` on macOS | Broken Homebrew Node. Run `brew reinstall node@22` (or `brew install node && brew link --overwrite node`) |
 | Port 5173 busy | Change `DEV_SERVER_PORT` in `.env` |
 | Scans finish with 0 vulnerabilities | The backend's nmap `vulners` script needs internet access to vulners.com; check the Scans page capability banner |

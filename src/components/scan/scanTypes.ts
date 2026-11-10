@@ -60,7 +60,7 @@ export const SCAN_TYPE_DEFINITIONS: readonly ScanTypeDefinition[] = [
   {
     type: 'discovery',
     title: 'Discovery scan',
-    description: 'Sweeps the configured subnet for live hosts. New hosts are queued for an immediate vulnerability audit.',
+    description: 'Runs a full subnet sweep now. Automatic ticks after startup only check known devices and passive announcements; new hosts are queued for an immediate vulnerability audit.',
     icon: 'radar',
     triggerLabel: 'Trigger discovery scan',
   },

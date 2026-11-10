@@ -1,6 +1,7 @@
-// REST paths exposed by SIEM_Home (internal/api/server.go). Keep in sync with openapi.yaml.
-// Note: GET /api/timeline is intentionally not listed here — the Timeline widget keeps its
-// own, unchanged data binding in Home.tsx.
+// Logical IPC paths routed to Wails bridge methods by wailsBridge.ts. They are not
+// HTTP routes: the daemon no longer serves a UI REST API. The ingest API contract lives
+// in openapi.yaml.
+// Note: GetTimeline is called directly by the Timeline widget in Home.tsx.
 export const API_ENDPOINTS = {
   devices: '/api/devices',
   services: '/api/services',

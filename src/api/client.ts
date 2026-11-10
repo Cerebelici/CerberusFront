@@ -61,11 +61,12 @@ function extractServerError(payload: unknown): string | null {
 }
 
 /**
- * Thin fetch wrapper shared by every API caller:
- * - resolves paths against VITE_API_BASE_URL
+ * Shared request wrapper used by every API caller. Inside the desktop app it dispatches
+ * the logical path through Wails IPC. The fetch branch is retained for frontend-only
+ * development and legacy builds; the shipped daemon no longer exposes the UI REST API.
+ *
  * - applies VITE_API_TIMEOUT_MS (covers headers *and* body)
- * - attaches X-API-Key when VITE_API_KEY is set
- * - converts non-2xx responses into ApiError using the backend's {"error": "..."} body
+ * - converts non-2xx responses into ApiError using a {"error": "..."} body
  * - re-throws caller aborts as DOMException("AbortError") so components can ignore them
  */
 export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>): Promise<T> {
@@ -85,7 +86,6 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
 
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
-  if (env.apiKey) headers['X-API-Key'] = env.apiKey
 
   try {
     if (isWailsApp()) {

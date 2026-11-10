@@ -1,6 +1,10 @@
 /**
  * Wails v2 IPC Bridge definition and router for Cerberus.
- * Maps REST paths and actions to Go Bridge methods when running inside the Wails desktop container.
+ *
+ * This is the UI's only supported transport. The logical paths below are routed to Go
+ * Bridge methods when running inside the Wails desktop container; the daemon no longer
+ * serves a REST UI API. The fetch path in client.ts remains only for frontend-only
+ * development and legacy builds.
  */
 
 export interface WailsBridge {
@@ -20,6 +24,7 @@ export interface WailsBridge {
   ClearScanHistory(): Promise<{ status: string; deleted: number }>;
   TriggerDiscovery(): Promise<unknown>;
   TriggerVulnerabilityScan(): Promise<unknown>;
+  CancelScan(): Promise<{ status: string }>;
   GetLogs(): Promise<unknown>;
   GetSettings(): Promise<unknown>;
   UpdateSettings(req: unknown): Promise<unknown>;
@@ -40,8 +45,8 @@ declare global {
 }
 
 /**
- * Error thrown for an IPC result that the HTTP API would answer with a non-2xx status,
- * so callers handle both transports the same way.
+ * Error thrown for an IPC result that used to be a non-2xx HTTP response, so callers
+ * keep the same handling after the REST UI API was removed.
  */
 export class IpcHttpError extends Error {
   readonly status: number;
@@ -55,13 +60,25 @@ export class IpcHttpError extends Error {
   }
 }
 
-/** Trigger results with status "conflict" are the IPC form of HTTP 409. */
-function rejectConflict(result: unknown): unknown {
-  if (typeof result === 'object' && result !== null && 'status' in result && result.status === 'conflict') {
-    const message = 'error' in result && typeof result.error === 'string' ? result.error : 'A scan is already in progress';
-    throw new IpcHttpError(message, 409, result);
+/**
+ * Bridge trigger results mirror the old HTTP responses: 409 when a scan of that type is
+ * already running, 403 when privileged execution was refused, and 503 when the scheduler
+ * is unavailable.
+ */
+function rejectFailedTrigger(result: unknown): unknown {
+  if (typeof result !== 'object' || result === null || !('status' in result)) return result
+  const status = (result as { status?: unknown }).status
+  const error = 'error' in result && typeof result.error === 'string' ? result.error : undefined
+  if (status === 'conflict') {
+    throw new IpcHttpError(error ?? 'A scan is already in progress', 409, result)
   }
-  return result;
+  if (status === 'forbidden') {
+    throw new IpcHttpError(error ?? 'Privileged execution is required', 403, result)
+  }
+  if (status === 'unavailable') {
+    throw new IpcHttpError(error ?? 'Scan scheduler is not available', 503, result)
+  }
+  return result
 }
 
 export function isWailsApp(): boolean {
@@ -171,10 +188,10 @@ export async function dispatchWailsIpc(
     }
   }
   if (cleanPath === '/api/scans/discovery/trigger' && method === 'POST') {
-    return rejectConflict(await bridge.TriggerDiscovery());
+    return rejectFailedTrigger(await bridge.TriggerDiscovery());
   }
   if (cleanPath === '/api/scans/vulnerability/trigger' && method === 'POST') {
-    return rejectConflict(await bridge.TriggerVulnerabilityScan());
+    return rejectFailedTrigger(await bridge.TriggerVulnerabilityScan());
   }
 
   // 7. Daemon log
